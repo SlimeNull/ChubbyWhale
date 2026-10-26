@@ -1,31 +1,30 @@
-// Speech bubble above the pet's head, typed out character by character.
+// Speech bubble text and timing. The bubble is drawn in its own click-through
+// window (bubble.html), which the Rust motion thread keeps next to her head;
+// this side types the text out and reports where her head is.
+import { emitTo } from "@tauri-apps/api/event";
+import { ipc } from "../ipc";
 
 export class Bubble {
-  private el: HTMLDivElement;
-  private textEl: HTMLSpanElement;
   private typing = 0;
   private hideTimer = 0;
+  private anchorKey = "";
   /** True while characters are still appearing (drives the mouth). */
   talking = false;
   visible = false;
+  /** Called when the bubble appears, so the owner can report the head position right away. */
   onChange: () => void = () => {};
 
-  constructor(host: HTMLElement) {
-    this.el = document.createElement("div");
-    this.el.className = "bubble";
-    this.textEl = document.createElement("span");
-    this.el.appendChild(this.textEl);
-    host.appendChild(this.el);
-    this.el.addEventListener("click", () => this.hide());
+  private send(text: string, show: boolean) {
+    emitTo("bubble", "bubble-text", { text, show }).catch(() => {});
   }
 
-  /** Place the bubble so its tail points at (x, y). */
-  anchor(x: number, y: number) {
-    const w = this.el.offsetWidth;
-    const left = Math.max(6, Math.min(window.innerWidth - w - 6, x - w / 2));
-    this.el.style.left = `${left}px`;
-    this.el.style.top = `${Math.max(4, y - this.el.offsetHeight - 10)}px`;
-    this.el.style.setProperty("--tail-x", `${Math.max(16, Math.min(w - 16, x - left))}px`);
+  /** Point the bubble at her head: x, head top, head half-width (window-local CSS px). */
+  anchor(x: number, top: number, half: number) {
+    if (!this.visible) return;
+    const key = [x, top, half].map(Math.round).join(",");
+    if (key === this.anchorKey) return;
+    this.anchorKey = key;
+    ipc.setBubble([x, top, half]);
   }
 
   show(text: string, ms?: number) {
@@ -33,14 +32,11 @@ export class Bubble {
     clearTimeout(this.hideTimer);
     const chars = [...text];
     let i = 0;
-    this.textEl.textContent = "";
-    this.el.classList.add("show");
     this.visible = true;
     this.talking = true;
     this.onChange();
     this.typing = window.setInterval(() => {
-      this.textEl.textContent = chars.slice(0, ++i).join("");
-      this.onChange();
+      this.send(chars.slice(0, ++i).join(""), true);
       if (i >= chars.length) {
         clearInterval(this.typing);
         this.talking = false;
@@ -54,14 +50,10 @@ export class Bubble {
     clearInterval(this.typing);
     clearTimeout(this.hideTimer);
     this.talking = false;
+    if (!this.visible) return;
     this.visible = false;
-    this.el.classList.remove("show");
-    this.onChange();
-  }
-
-  rect(): [number, number, number, number] | null {
-    if (!this.visible) return null;
-    const r = this.el.getBoundingClientRect();
-    return [r.left, r.top, r.right, r.bottom];
+    this.anchorKey = "";
+    this.send("", false);
+    ipc.setBubble(null);
   }
 }

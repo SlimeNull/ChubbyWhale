@@ -623,6 +623,7 @@ version = "0.1.0"
 dependencies = [
  "active-win-pos-rs",
  "log",
+ "objc2",
  "reqwest",
  "serde",
  "serde_json",

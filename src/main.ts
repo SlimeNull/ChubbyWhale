@@ -34,7 +34,7 @@ async function main() {
   loadVoiceClips();
   await rig.init(stage);
   const fx = new Fx(rig, rig.fxLayer);
-  const bubble = new Bubble(stage);
+  const bubble = new Bubble();
   const voice = new Voice(memory);
   const pet = new Pet(rig, fx, bubble, voice, memory);
   const llm = new LlmBrain(memory, () => settings);

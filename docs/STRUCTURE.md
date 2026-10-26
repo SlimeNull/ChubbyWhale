@@ -16,7 +16,8 @@
 ├── docs/STRUCTURE.md         本文件
 ├── index.html                宠物窗口页面（入口 src/main.ts）
 ├── settings.html             设置窗口页面（入口 src/settings/main.ts）
-├── vite.config.ts            多页面构建：index + settings
+├── bubble.html               对话气泡窗口页面（入口 src/bubble/main.ts）
+├── vite.config.ts            多页面构建：index + settings + bubble
 ├── package.json              pnpm；脚本 dev / build / tauri；devDependency @resvg/resvg-js（渲染托盘图标）
 ├── .gitattributes            Git LFS 追踪的二进制：*.png *.webp *.ico *.icns *.wav *.mp3 *.ogg *.m4a *.flac
 ├── .github/workflows/release.yml   推送 v* 标签后构建 macOS（arm64/x64）和 Windows 安装包，生成 Release 草稿（checkout 启用 lfs）
@@ -24,15 +25,16 @@
 ├── dist/                     vite 构建产物（已在 .gitignore 中）
 │
 ├── src-tauri/                Rust 后端
-│   ├── Cargo.toml            依赖：tauri（tray-icon、macos-private-api）、active-win-pos-rs、user-idle、reqwest
-│   ├── tauri.conf.json       窗口 main：基准尺寸 300×420（按大小设置缩放），透明、无边框、置顶、不进任务栏、不抢焦点；macOSPrivateApi=true
-│   ├── capabilities/default.json   main 和 settings 窗口的权限：core:default、opener:default
+│   ├── Cargo.toml            依赖：tauri（tray-icon、macos-private-api）、active-win-pos-rs、user-idle、reqwest；macOS 另有 objc2
+│   ├── tauri.conf.json       窗口 main：基准尺寸 270×290（刚好包住宠物和头顶特效，按大小设置缩放）；窗口 bubble：240×150 对话气泡。都是透明、无边框、置顶、不进任务栏、不抢焦点；macOSPrivateApi=true
+│   ├── capabilities/default.json   main、settings、bubble 窗口的权限：core:default、opener:default
 │   ├── icons/                应用图标，由 art/icon-source.png 经 `pnpm tauri icon` 生成
 │   │   └── tray/             托盘图标（由 art/tray/build-tray.mjs 生成）：tray-template.png（macOS 单色模板）、tray-color.png（Windows）
 │   └── src/
 │       ├── main.rs           入口，调用 lib::run
-│       ├── lib.rs            Builder：注册命令、托盘（macOS 用模板图标）和右键菜单、设置窗口、macOS Accessory 模式、启动 motion 线程
-│       ├── motion.rs         拖拽、抛掷物理、碰撞、平移、点击穿透（独立线程）；按大小缩放窗口
+│       ├── lib.rs            Builder：注册命令、托盘（macOS 用模板图标）和右键菜单、设置窗口、macOS Accessory 模式和菜单栏限制解除、气泡窗口设为点击穿透、启动 motion 线程
+│       ├── motion.rs         拖拽、抛掷物理、碰撞、平移、点击穿透（独立线程）；气泡窗口跟随；按大小缩放窗口
+│       ├── macos.rs          macOS：给窗口类补一个 `constrainFrameRect:toScreen:` 并原样返回，让窗口能移到菜单栏上方
 │       ├── activity.rs       前台应用名、窗口标题、键鼠空闲秒数；macOS 屏幕录制权限
 │       ├── store.rs          应用数据目录中的 JSON 存储（settings / memory）；dev 专用的 debug_dump
 │       └── llm.rs            OpenAI 兼容的 chat/completions 代理（reqwest + rustls）
@@ -41,7 +43,7 @@
 │   ├── main.ts               宠物窗口启动：加载设置和记忆 → 按大小缩放窗口 → 配置音频 → Rig → Fx → Bubble → Pet → Director；监听菜单和设置事件
 │   ├── ipc.ts                所有 Rust 命令的类型化封装和事件 payload 类型（新增命令先改这里）
 │   ├── debug.ts              仅 DEV：错误写入日志，演示模式（VITE_PET_DEMO=1 / throw / features）
-│   ├── styles.css            宠物窗口样式（透明背景、对话气泡）
+│   ├── styles.css            宠物窗口样式（透明背景）
 │   ├── vite-env.d.ts
 │   ├── audio/                声音：全部用 WebAudio 实时合成，没有音频文件
 │   │   ├── engine.ts         AudioContext、音效总线（带混响发送 sfxReverb）和声音总线、硬拐点限幅器、噪声缓冲；可接入 OfflineAudioContext 做离线渲染
@@ -51,7 +53,7 @@
 │   │   ├── rig.ts            MeshPlane 网格变形渲染：呼吸、倾斜、挤压拉伸、跳跃、悬挂摆动（looseness）、飞行旋转或翻滚（spin）、逐帧循环（playCycle：走路和跑步，带步伐起伏和左右摇摆）；PoseName 定义；脚的位置随窗口尺寸变化
 │   │   ├── pet.ts            行为状态机：待机动作、眨眼、口型、指针（戳 / 拖 / 丢）、反应变体（REACTIONS）、音效和声音触发、睡眠、点击区域同步
 │   │   ├── fx.ts             Pixi 文字特效：Zzz、♪、✦、💧、?、!、♥、💢、「咚!」、晕眩星星
-│   │   └── bubble.ts         DOM 对话气泡：逐字显示，talking 标志驱动口型
+│   │   └── bubble.ts         对话气泡控制：计时、逐字推进（发 `bubble-text` 给气泡窗口），用 talking 标志驱动口型；用 `set_bubble` 上报头的位置
 │   ├── brain/                「大脑」：决定说什么、什么时候说
 │   │   ├── director.ts       每 2 秒轮询 activity：睡眠和唤醒、按停留时长和冷却决定评论什么、问候、闲聊
 │   │   ├── topics.ts         按应用名和标题分类（Kind），识别话题（Topic：游戏 / 商品 / 网站 / AI），提取文件名和价格
@@ -59,6 +61,7 @@
 │   │   ├── memory.ts         长期记忆：说过的话、态度（opinions）、自我设定（facts）、统计
 │   │   ├── llm.ts            可选 LLM：人设和规则提示词、JSON 输出校验、态度一致性约束
 │   │   └── settings.ts       Settings 类型、默认值、读写（兼容旧的数字 size）、大小对应的缩放 SIZE_SCALE、话痨程度对应的发言间隔
+│   ├── bubble/               对话气泡窗口：main.ts（按 `bubble-place` 给出的方位和尾巴位置排版）、bubble.css
 │   └── settings/             设置窗口
 │       ├── main.ts           表单读写（大小、声音、陪伴、AI）、音效和声音试听、权限按钮、LLM 测试、记忆列表、清空记忆
 │       └── settings.css
@@ -88,10 +91,11 @@
 | 位置 | 职责 |
 |---|---|
 | Rust 主线程（tao 事件循环） | 窗口、托盘、菜单；**同步**（非 async）命令也在这里执行 |
-| `motion` 线程（motion.rs） | 空闲时每 33ms 一次，忙碌时每 8ms 一次：读光标和窗口位置 → 推进阶段 → 移动窗口 → 发 `pet-motion` / `pet-cursor` 事件 → 切换点击穿透 |
+| `motion` 线程（motion.rs） | 空闲时每 33ms 一次，忙碌时每 8ms 一次：读光标和窗口位置 → 推进阶段 → 移动窗口 → 发 `pet-motion` / `pet-cursor` 事件 → 切换点击穿透 → 让气泡窗口跟随 |
 | tokio 运行时 | async 命令：motion 相关命令、`llm_chat` |
 | 宠物窗口 webview | Pixi 渲染、Pet 状态机、Director、音频 |
 | 设置窗口 webview | 按需创建（label 为 `settings`） |
+| 气泡窗口 webview | label 为 `bubble`，始终存在，始终点击穿透；没有台词时内容为空 |
 
 ### motion 阶段
 
@@ -100,13 +104,15 @@
 - `Flying`：重力 2600 px/s²。撞左、右、上边缘时反弹（系数 0.55）；落地时反弹（0.32）后受摩擦减速。停稳或飞满 8 秒后发出 `landed` 事件，`impact` 取整个飞行过程中的最大撞击速度。工作区（屏幕可用区域）在起飞时查询一次，存入阶段数据。
 - 松手时速度大于 700 逻辑 px/s 算作「丢出去」，否则原地放下。速度上限 6000。
 - `Gliding`：用于走路 / 跑步（`linear`，匀速）和放下后回到屏内（smoothstep）。`glide_by` 按速度计算时长，时长基于被屏幕边缘截断后的实际距离，所以步频和移动速度始终一致。
-- 点击穿透：只有当光标位于前端上报的 hit rects（身体框、气泡框）内，或处于按下 / 拖拽状态时，窗口才接收鼠标。
+- 点击穿透：只有当光标位于前端上报的 hit rects（身体框）内，或处于按下 / 拖拽状态时，宠物窗口才接收鼠标。
+- **对话气泡窗口**：宠物窗口只包住她自己（加上头顶约 40px 的特效空间），台词显示在独立的 `bubble` 窗口里。前端用 `set_bubble([头 x, 头顶 y, 头半宽])` 上报位置（隐藏时传 null）；motion 线程每个 tick 把气泡窗口放到头顶上方，头顶上方放不下（靠近菜单栏或屏幕顶部）时放到头的右侧，右侧放不下则放左侧，然后发出 `bubble-place {side, tail}`。工作区每 500ms 刷新一次；气泡窗口的状态只归 motion 线程所有，不放进共享 State。
+- **macOS 菜单栏**：AppKit 默认不允许窗口越过菜单栏，`macos.rs` 解除了这个限制，所以宠物窗口的透明头顶空间可以伸到菜单栏后面，她的身体能碰到屏幕可用区域的顶边。抛掷时的天花板仍然是工作区顶边（菜单栏下沿）。
 
 ### 前端行为
 
 - `Pet.mode`：`idle | action | drag | fly | sleep`。`act(pose, ms)` 使用递增的 token 实现可取消的定时姿势。
 - 待机动作每 8～18 秒按权重抽一个：look、curious、yawn（深夜权重更高）、happy 哼歌（hum 声音）、giggle 偷笑、wander 移动、watch 坐下、bob 漂浮。
-- **wander 移动**：70% 走路（walk_a → walk_pass → walk_b → walk_pass，6fps，每秒 3 步，55 px/s），30% 小跑（run_a ↔ run_b，6fps，每秒 6 步，150 px/s）。速度和距离都乘以大小系数；每一步播放 step 音效。移动图朝左，向右走时水平翻转。被屏幕边缘挡住时改为朝那个方向张望。被拎起、睡觉或其他动作打断时，`stopWalking()` 会停掉帧循环和脚步声。
+- **wander 移动**：70% 走路（walk_a → walk_pass → walk_b → walk_pass，4fps，每秒 2 步），30% 小跑（run_a ↔ run_b，4fps，每秒 4 步）。移动速度 = 步幅 × 步频 × 大小系数，步幅取立绘中两脚间距（中号时走路 72px、跑步 100px，即 `WALK_STRIDE` / `RUN_STRIDE`），这样着地的脚相对地面不动，不会滑步。改了移动立绘就要重新测量步幅。`playCycle` 的 `phase` 让身体在脚着地时（走路帧 A、B 的中间）最低，在收腿帧时最高；`onStep` 在每次着地时触发脚步声。移动图朝左，向右走时水平翻转。被屏幕边缘挡住时改为朝那个方向张望。被拎起、睡觉或其他动作打断时，`stopWalking()` 会停掉帧循环（脚步声也随之停止）。
 - 眨眼和说话只在 idle 姿势上生效，通过切换差分贴图实现。
 - **反应变体**（`pet.ts` 的 `REACTIONS`）：每种情况有多个反应，每个反应包含姿势、音效 / 声音、台词（带概率）、特效、跳跃或挤压，以及悬挂松紧或翻滚。挑选时不会和上一次相同，并跳过没有贴图的姿势。
   - `poke`：shy / giggle / shocked / happy / curious；4 秒内戳 4 次以上触发 `pokeSpam`：pout / shocked
@@ -134,10 +140,12 @@
 | `title_permission` / `request_title_permission` | activity.rs | macOS 屏幕录制权限；其他平台返回 true |
 | `drag_begin` / `drag_end` | motion.rs | async。`drag_end` 返回 `click / drop / throw / none` |
 | `set_body` / `set_hit_rects` | motion.rs | async。窗口内逻辑像素 `[l,t,r,b]` |
+| `set_bubble` | motion.rs | async。`[头 x, 头顶 y, 头半宽]`（窗口内逻辑像素）或 null |
 | `fall` | motion.rs | async |
 | `glide_by` | motion.rs | async。`(dx, speed px/s, linear)`，返回被屏幕边缘截断后的实际 dx |
 | `set_pet_scale` | motion.rs | async。窗口缩放到基准尺寸 × factor，保持脚底中点不动 |
 | `debug_throw` | motion.rs | 仅 DEV 生效：以给定速度抛出 |
+| `debug_probe_top` / `debug_windows` | motion.rs | 仅 DEV 生效：检查窗口能否越过菜单栏；移动宠物窗口并返回宠物窗口、气泡窗口和工作区的坐标 |
 | `store_load` / `store_save` | store.rs | 名称白名单：`settings`、`memory` |
 | `data_dir` | store.rs | 应用数据目录 |
 | `debug_dump` | store.rs | 仅 DEV 生效：`data:<mime>;base64,` 数据按二进制写入（PNG、WAV），其他内容追加到日志；文件名只允许字母、数字和 `-_.` |
@@ -153,6 +161,8 @@
 | `pet-menu` | Rust → main | `"talk"` |
 | `settings-changed` | settings → 全局 | 无 |
 | `memory-cleared` | settings → 全局 | 无（由宠物窗口执行清空，避免两个窗口同时写文件） |
+| `bubble-text` | main → bubble | `{text, show}`：当前已经显示出来的文字 |
+| `bubble-place` | Rust → bubble | `{side: above/right/left, tail}`：气泡在头的哪一侧，以及尾巴在气泡窗口里的位置（逻辑像素） |
 
 ## 数据
 
@@ -180,6 +190,7 @@
 4. 所有姿势必须以同一显示比例渲染（`Rig.scale = height / idle.h`），头部大小靠 `build_sprites.py` 的逐姿势 scale 统一。
 5. `public/sprites/` 和 `src-tauri/icons/tray/` 是构建产物，修改美术要改 `art/` 下的源文件，再重新构建。
 6. 音频只在 `engine.get()` 返回的上下文里创建节点，所有输出接到 `engine.sfxBus` / `engine.voiceBus`，不要直接接 `destination`（音量设置和限幅器会失效）。
+7. 宠物窗口只放宠物本身。气泡、提示之类的 UI 放在独立窗口里，不要再给宠物窗口加大块透明区域，否则她又会到不了屏幕边缘。
 
 ## 开发和调试
 
@@ -187,7 +198,9 @@
 - `pnpm tauri dev`：开发运行。`pnpm build`：tsc 检查加 vite 构建。在 `src-tauri/` 下运行 `cargo clippy`。
 - `VITE_PET_DEMO=1 pnpm tauri dev`：依次播放全部姿势，把截图存到 `debug/snap-*.png`。
 - `VITE_PET_DEMO=throw pnpm tauri dev`：抛掷压力测试，结果写入 `debug/log.txt`（6 次 throw 的落地时间，以及后端往返耗时的最大值）。
+- `VITE_PET_DEMO=bubble`：在屏幕底部和菜单栏附近各说一句长台词，记录气泡的方位和坐标。`VITE_PET_DEMO=probe`：检查窗口能否越过菜单栏。
 - `VITE_PET_DEMO=features pnpm tauri dev`：依次切换三种大小并记录窗口尺寸；把所有音效和声音离线渲染成 `debug/audio-*.wav`；给 10 个反应变体姿势截图。音频可以用 numpy 统计峰值、RMS、有效时长，或画频谱图检查（agent 听不到声音，只能这样客观检查，最终听感要请用户确认）。
 - 显示器休眠或窗口不可见时，webview 会暂停 requestAnimationFrame，演示模式会手动驱动 ticker。
+- agent 跑测试时，用户可能正开着自己的 `pnpm tauri dev`（占用 1420 端口）。测试实例要换端口：`pnpm tauri dev --config '{"build":{"devUrl":"http://localhost:1430","beforeDevCommand":"pnpm dev --port 1430 --strictPort"}}'`。结束时只杀自己启动的进程树，不要 `pkill -f "tauri dev"`，也不要按 chubby-whale 进程名去 kill。
 - 程序卡死时：用 `sample <pid> 2` 查看各线程调用栈。
 - 用 node 26 可以直接运行 `src/brain/topics.ts` 来检查分类规则（它只有 type import）。

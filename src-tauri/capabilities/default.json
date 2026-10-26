@@ -1,8 +1,12 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Pet window and settings window",
-  "windows": ["main", "settings"],
+  "description": "Pet, settings and speech bubble windows",
+  "windows": [
+    "main",
+    "settings",
+    "bubble"
+  ],
   "permissions": [
     "core:default",
     "opener:default"

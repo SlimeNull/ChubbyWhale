@@ -18,8 +18,8 @@
         "label": "main",
         "title": "大肥鱼",
         "url": "index.html",
-        "width": 300,
-        "height": 420,
+        "width": 270,
+        "height": 290,
         "resizable": false,
         "maximizable": false,
         "minimizable": false,
@@ -30,6 +30,25 @@
         "skipTaskbar": true,
         "focus": false,
         "visibleOnAllWorkspaces": true
+      },
+      {
+        "label": "bubble",
+        "title": "大肥鱼 · 气泡",
+        "url": "bubble.html",
+        "width": 240,
+        "height": 150,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visibleOnAllWorkspaces": true,
+        "x": -1000,
+        "y": -1000
       }
     ],
     "security": {
@@ -38,7 +57,12 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg", "nsis", "msi"],
+    "targets": [
+      "app",
+      "dmg",
+      "nsis",
+      "msi"
+    ],
     "category": "Entertainment",
     "shortDescription": "大肥鱼桌面宠物",
     "longDescription": "Chubby Whale (大肥鱼) — an open-source desktop pet starring the community whale girl.",
@@ -56,7 +80,10 @@
     },
     "windows": {
       "nsis": {
-        "languages": ["SimpChinese", "English"]
+        "languages": [
+          "SimpChinese",
+          "English"
+        ]
       }
     }
   }

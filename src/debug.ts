@@ -25,6 +25,29 @@ export function installDebug(rig: Rig, pet: Pet, fx: Fx) {
   log("info", ["debug installed", { dpr: devicePixelRatio, w: innerWidth, h: innerHeight }]);
 
   if (import.meta.env.VITE_PET_DEMO === "throw") return throwTest(log);
+  if (import.meta.env.VITE_PET_DEMO === "bubble") {
+    // Bubble placement: at the bottom (above her head) and pushed up into the menu bar (beside her head).
+    setTimeout(async () => {
+      const text = "你好呀，我是大肥鱼~ 今天也要元气满满地陪你一起工作哦！";
+      for (const [name, to] of [["bottom", null], ["top", [300, -60]]] as const) {
+        if (to) log("info", [name, "moved", await invoke("debug_windows", { to })]);
+        pet.say(text, "happy");
+        await new Promise((r) => setTimeout(r, 1200));
+        log("info", [name, await invoke("debug_windows", { to: null }), { head: rig.head(), height: rig.height }]);
+      }
+      log("info", ["bubble done"]);
+    }, 3000);
+    // rAF is paused while the display sleeps; keep the renderer ticking for this test.
+    setInterval(() => rig.app.ticker.update(performance.now()), 16);
+    return;
+  }
+  if (import.meta.env.VITE_PET_DEMO === "probe") {
+    setTimeout(async () => {
+      for (const above of [0, 40, 150]) log("info", ["probe", above, await invoke("debug_probe_top", { above })]);
+      log("info", ["probe done"]);
+    }, 2500);
+    return;
+  }
   if (import.meta.env.VITE_PET_DEMO === "features") return featureTest(rig, pet, log);
   if (import.meta.env.VITE_PET_DEMO !== "1") return;
   let frames = 0;

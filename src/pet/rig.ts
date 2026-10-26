@@ -96,7 +96,16 @@ export class Rig {
   /** Continuous spin in flight, rad/s (0 = tilt with velocity instead). */
   spin = 0;
   /** Frame-by-frame animation (walk / run cycles), overriding `pose` while set. */
-  private cycle: { frames: PoseName[]; fps: number; stepsPerFrame: number; bob: number; t0: number } | null = null;
+  private cycle: {
+    frames: PoseName[];
+    fps: number;
+    stepsPerFrame: number;
+    phase: number;
+    bob: number;
+    t0: number;
+    lastStep: number;
+    onStep?: () => void;
+  } | null = null;
   private sx = new Spring(1, 1);
   private sy = new Spring(1, 1);
   private t = 0;
@@ -135,11 +144,17 @@ export class Rig {
 
   /**
    * Loop `frames` at `fps`. `stepsPerFrame` is how many footsteps one frame
-   * covers; each step gets a little bounce of `bob` px and a side-to-side waddle.
+   * covers. A foot lands every step (`phase` frames into the cycle, then every
+   * 1/stepsPerFrame frames): the body is lowest there and `onStep` fires; in
+   * between it rises by `bob` px and waddles side to side.
    */
-  playCycle(frames: PoseName[], fps: number, { stepsPerFrame = 0.5, bob = 4 } = {}) {
-    this.cycle = { frames: frames.filter((f) => this.textures.has(f)), fps, stepsPerFrame, bob, t0: this.t };
-    if (!this.cycle.frames.length) this.cycle = null;
+  playCycle(
+    frames: PoseName[],
+    fps: number,
+    { stepsPerFrame = 0.5, phase = 0, bob = 4, onStep }: { stepsPerFrame?: number; phase?: number; bob?: number; onStep?: () => void } = {},
+  ) {
+    const usable = frames.filter((f) => this.textures.has(f));
+    this.cycle = usable.length ? { frames: usable, fps, stepsPerFrame, phase, bob, t0: this.t, lastStep: -1, onStep } : null;
   }
 
   stopCycle() {
@@ -216,10 +231,15 @@ export class Rig {
       const c = this.cycle;
       const ft = (this.t - c.t0) * c.fps;
       texName = c.frames[Math.floor(ft) % c.frames.length];
-      // One bounce per step: up mid-stride, down when the foot lands.
-      const step = ft * c.stepsPerFrame * Math.PI;
-      cycleBob = Math.abs(Math.sin(step)) * c.bob;
-      cycleTilt = Math.sin(step) * 0.035;
+      // One bounce per step: down when a foot lands, up in between.
+      const steps = (ft - c.phase) * c.stepsPerFrame;
+      cycleBob = Math.abs(Math.sin(steps * Math.PI)) * c.bob;
+      cycleTilt = Math.sin(steps * Math.PI) * 0.035;
+      const landed = Math.floor(steps);
+      if (landed > c.lastStep && steps >= 0) {
+        c.lastStep = landed;
+        c.onStep?.();
+      }
     }
     this.shown = texName;
     const tex = this.textures.get(texName)!;

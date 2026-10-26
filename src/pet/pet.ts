@@ -107,6 +107,12 @@ type ReactionKind = keyof typeof REACTIONS;
 
 type Mode = "idle" | "action" | "drag" | "fly" | "sleep";
 
+// Distance between the feet in walk_a / run_a at medium size, in px (see wander()).
+const WALK_STRIDE = 72;
+const RUN_STRIDE = 100;
+const WALK_STEPS_PER_SEC = 2;
+const RUN_STEPS_PER_SEC = 4;
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const chance = (p: number) => Math.random() < p;
@@ -122,7 +128,6 @@ export class Pet {
   private lastReaction: Partial<Record<ReactionKind, number>> = {};
   private flight: Reaction | null = null;
   private lastBoing = 0;
-  private stepTimer = 0;
   /** Called whenever she says something, so the brain can remember it. */
   onSaid: (text: string, kind: string) => void = () => {};
   /** Called when the user pokes her (the brain may want to chat back). */
@@ -223,9 +228,8 @@ export class Pet {
     return r;
   }
 
-  /** Stop a walk / run cycle and its footsteps (also when interrupted). */
+  /** Stop a walk / run cycle (its footsteps stop with it), also when interrupted. */
   private stopWalking() {
-    clearInterval(this.stepTimer);
     this.rig.stopCycle();
   }
 
@@ -331,9 +335,12 @@ export class Pet {
     const run = chance(0.3) && this.rig.has("run_a");
     const dir = chance(0.5) ? -1 : 1;
     const size = this.rig.height / 230;
-    // Speeds are in logical px/s and scale with the pet so steps never "skate".
-    const speed = (run ? 150 : 55) * size;
-    const dist = (run ? rand(160, 340) : rand(60, 170)) * size;
+    // Move exactly one stride per step so the planted foot doesn't slide.
+    // Strides are the distance between the feet in walk_a / run_a at medium size
+    // (measure with the snippet in docs/STRUCTURE.md if the art changes).
+    const stepsPerSec = run ? RUN_STEPS_PER_SEC : WALK_STEPS_PER_SEC;
+    const speed = (run ? RUN_STRIDE : WALK_STRIDE) * stepsPerSec * size;
+    const dist = (run ? rand(220, 420) : rand(120, 320)) * size;
     const my = ++this.token;
     this.mode = "action";
     const moved = await ipc.glideBy(dir * dist, speed, true).catch(() => 0);
@@ -345,11 +352,15 @@ export class Pet {
     }
     // The walk / run art faces left.
     this.rig.flip = moved > 0;
-    if (run) this.rig.playCycle(["run_a", "run_b"], 6, { stepsPerFrame: 1, bob: 7 });
-    else this.rig.playCycle(["walk_a", "walk_pass", "walk_b", "walk_pass"], 6, { stepsPerFrame: 0.5, bob: 3 });
-    const stepsPerSec = run ? 6 : 3;
-    this.stepTimer = window.setInterval(() => playSfx("step", run ? 0.7 : 0.4), 1000 / stepsPerSec);
-    if (run && chance(0.5)) playVoice("happy");
+    const onStep = () => playSfx("step", run ? 0.7 : 0.4);
+    if (run) {
+      // Two frames, one step each; a bounce per stride.
+      this.rig.playCycle(["run_a", "run_b"], stepsPerSec, { stepsPerFrame: 1, phase: 0, bob: 6, onStep });
+      if (chance(0.5)) playVoice("happy");
+    } else {
+      // A, pass, B, pass: two steps per cycle; feet land mid-A and mid-B.
+      this.rig.playCycle(["walk_a", "walk_pass", "walk_b", "walk_pass"], stepsPerSec * 2, { stepsPerFrame: 0.5, phase: 0.5, bob: 3, onStep });
+    }
     await sleep((Math.abs(moved) / speed) * 1000);
     if (my !== this.token) return; // interrupted: whoever took over already stopped the walk
     this.toIdle(false);
@@ -513,7 +524,7 @@ export class Pet {
 
   private placeBubble() {
     const h = this.rig.head();
-    this.bubble.anchor(h.x, h.top);
+    this.bubble.anchor(h.x, h.top, this.rig.height * 0.28);
   }
 
   private syncHitRects() {
@@ -521,8 +532,6 @@ export class Pet {
     // Trim the transparent margins of the illustration a little.
     const body: Rect = [b.x + b.width * 0.12, b.y + b.height * 0.04, b.right - b.width * 0.12, b.bottom];
     const rects: Rect[] = [body];
-    const br = this.bubble.rect();
-    if (br) rects.push(br);
     const key = rects.map((r) => r.map(Math.round).join(",")).join("|");
     if (key !== this.lastHitRects) {
       this.lastHitRects = key;

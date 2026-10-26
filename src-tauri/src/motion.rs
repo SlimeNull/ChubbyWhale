@@ -60,6 +60,9 @@ struct State {
     hit_rects: Vec<Rect>,
     ignoring: Option<bool>,
     last_cursor_emit: Instant,
+    /// Where the speech bubble should point: [head x, head top, head half-width],
+    /// window-local logical px. None while no bubble is showing.
+    bubble_anchor: Option<[f64; 3]>,
 }
 
 impl State {
@@ -98,11 +101,13 @@ impl Motion {
             hit_rects: Vec::new(),
             ignoring: None,
             last_cursor_emit: Instant::now(),
+            bubble_anchor: None,
         })))
     }
 
-    pub fn start(&self, window: WebviewWindow) {
+    pub fn start(&self, window: WebviewWindow, bubble: Option<WebviewWindow>) {
         let state = self.0.clone();
+        let mut bubble = bubble.map(|window| BubbleWindow { window, area: None, last: None });
         thread::spawn(move || {
             let mut last = Instant::now();
             loop {
@@ -111,7 +116,7 @@ impl Motion {
                 let now = Instant::now();
                 let dt = (now - last).as_secs_f64().min(0.05);
                 last = now;
-                if let Err(e) = tick(&state, &window, dt) {
+                if let Err(e) = tick(&state, &window, bubble.as_mut(), dt) {
                     log::debug!("motion tick: {e}");
                 }
             }
@@ -217,7 +222,7 @@ fn fly_step(
     }
 }
 
-fn tick(state: &Arc<Mutex<State>>, window: &WebviewWindow, dt: f64) -> tauri::Result<()> {
+fn tick(state: &Arc<Mutex<State>>, window: &WebviewWindow, bubble: Option<&mut BubbleWindow>, dt: f64) -> tauri::Result<()> {
     // 1. Window queries, unlocked.
     let cursor = window.cursor_position()?;
     let pos = window.outer_position()?;
@@ -229,7 +234,7 @@ fn tick(state: &Arc<Mutex<State>>, window: &WebviewWindow, dt: f64) -> tauri::Re
     let now = Instant::now();
 
     // 2. Snapshot (and drag samples) under a short lock.
-    let (mut phase, epoch, body, drag_velocity, over) = {
+    let (mut phase, epoch, body, drag_velocity, over, bubble_anchor) = {
         let mut s = state.lock().unwrap();
         let mut v = (0.0, 0.0);
         if let Phase::Dragging { .. } = s.phase {
@@ -240,7 +245,7 @@ fn tick(state: &Arc<Mutex<State>>, window: &WebviewWindow, dt: f64) -> tauri::Re
             v = velocity(&s.samples);
         }
         let over = s.hit_rects.iter().any(|r| lx >= r[0] && lx <= r[2] && ly >= r[1] && ly <= r[3]);
-        (s.phase, s.epoch, s.body, v, over)
+        (s.phase, s.epoch, s.body, v, over, s.bubble_anchor)
     };
 
     // A new flight needs to know which screen it's on; look it up once, unlocked.
@@ -324,7 +329,71 @@ fn tick(state: &Arc<Mutex<State>>, window: &WebviewWindow, dt: f64) -> tauri::Re
     if emit_cursor {
         let _ = window.emit_to(window.label(), "pet-cursor", (lx, ly));
     }
+
+    // 6. The speech bubble window follows the pet.
+    if let Some(b) = bubble {
+        let pet = if apply { new_pos.unwrap_or((wx, wy)) } else { (wx, wy) };
+        follow_bubble(window, b, bubble_anchor, &body, pet, k, now);
+    }
     Ok(())
+}
+
+/// Logical size of the bubble window (matches tauri.conf.json).
+const BUBBLE_SIZE: (f64, f64) = (240.0, 150.0);
+
+/// The speech bubble lives in its own small, click-through window so the pet
+/// window can stay tight around her. Owned by the motion thread (not shared).
+struct BubbleWindow {
+    window: WebviewWindow,
+    /// Cached work area, refreshed every half second (monitor queries are main-thread round trips).
+    area: Option<(Instant, Area)>,
+    /// Last physical position, side and tail offset sent, to skip redundant updates.
+    last: Option<((i32, i32), &'static str, i32)>,
+}
+
+#[derive(Serialize, Clone)]
+struct BubblePlace {
+    side: &'static str,
+    /// Tail position along the bubble's edge, logical px from its left (above) or top (sides).
+    tail: f64,
+}
+
+/// Put the bubble above her head, or beside it when there's no room above.
+/// Never called with the state lock held.
+fn follow_bubble(pet_window: &WebviewWindow, b: &mut BubbleWindow, anchor: Option<[f64; 3]>, body: &Rect, pet: (f64, f64), k: f64, now: Instant) {
+    let Some([hx, htop, half]) = anchor else {
+        b.last = None;
+        return;
+    };
+    if b.area.is_none_or(|(t, _)| now - t > Duration::from_millis(500))
+        && let Some(a) = work_area(pet_window, body_center(body, pet, k))
+    {
+        b.area = Some((now, a));
+    }
+    let Some((_, area)) = b.area else { return };
+    let (bw, bh) = (BUBBLE_SIZE.0 * k, BUBBLE_SIZE.1 * k);
+    let head_x = pet.0 + hx * k;
+    let head_top = pet.1 + htop * k;
+
+    let (side, mut x, y) = if head_top - bh >= area.top {
+        ("above", head_x - bw / 2.0, head_top - bh + 4.0 * k)
+    } else {
+        let y = (head_top + 6.0 * k).max(area.top);
+        let right = pet.0 + (hx + half) * k;
+        if right + bw <= area.right { ("right", right, y) } else { ("left", pet.0 + (hx - half) * k - bw, y) }
+    };
+    x = x.clamp(area.left, (area.right - bw).max(area.left));
+    let tail = if side == "above" { (head_x - x) / k } else { (head_top + 30.0 * k - y) / k };
+    let pos = (x.round() as i32, y.round() as i32);
+    let tail_i = tail.round() as i32;
+
+    if b.last.map(|l| l.0) != Some(pos) {
+        let _ = b.window.set_position(PhysicalPosition::new(pos.0, pos.1));
+    }
+    if b.last.map(|l| (l.1, l.2)) != Some((side, tail_i)) {
+        let _ = b.window.emit_to(b.window.label(), "bubble-place", BubblePlace { side, tail });
+    }
+    b.last = Some((pos, side, tail_i));
 }
 
 fn velocity(samples: &VecDeque<(Instant, f64, f64)>) -> (f64, f64) {
@@ -418,6 +487,13 @@ pub async fn set_body(motion: tauri::State<'_, Motion>, body: Rect) -> Result<()
     Ok(())
 }
 
+/// Where the speech bubble should point (or None when it's hidden).
+#[tauri::command]
+pub async fn set_bubble(motion: tauri::State<'_, Motion>, anchor: Option<[f64; 3]>) -> Result<(), ()> {
+    motion.0.lock().unwrap().bubble_anchor = anchor;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn set_hit_rects(motion: tauri::State<'_, Motion>, rects: Vec<Rect>) -> Result<(), ()> {
     motion.0.lock().unwrap().hit_rects = rects;
@@ -493,7 +569,7 @@ pub async fn debug_throw(window: WebviewWindow, motion: tauri::State<'_, Motion>
 /// center) where they are. Base size matches tauri.conf.json.
 #[tauri::command]
 pub async fn set_pet_scale(window: WebviewWindow, factor: f64) -> tauri::Result<()> {
-    const BASE: (f64, f64) = (300.0, 420.0);
+    const BASE: (f64, f64) = (270.0, 290.0);
     let k = scale(&window);
     let pos = window.outer_position()?;
     let size = window.outer_size()?;
@@ -506,4 +582,46 @@ pub async fn set_pet_scale(window: WebviewWindow, factor: f64) -> tauri::Result<
     window.set_size(tauri::PhysicalSize::new(w as u32, h as u32))?;
     set_pos(&window, x, y);
     Ok(())
+}
+
+/// Dev builds only: try to place the window `above` px over the work-area top and
+/// report where it actually ended up (macOS may clamp windows below the menu bar).
+#[tauri::command]
+pub async fn debug_probe_top(window: WebviewWindow, above: f64) -> tauri::Result<String> {
+    if !cfg!(debug_assertions) {
+        return Ok(String::new());
+    }
+    let k = scale(&window);
+    let pos = window.outer_position()?;
+    let Some(area) = work_area(&window, (pos.x as f64, pos.y as f64)) else { return Ok("no monitor".into()) };
+    let want = area.top - above * k;
+    set_pos(&window, pos.x as f64, want);
+    std::thread::sleep(Duration::from_millis(200));
+    let got = window.outer_position()?;
+    set_pos(&window, pos.x as f64, pos.y as f64);
+    Ok(format!("work-area top {} wanted y {} got y {} (scale {k})", area.top, want, got.y))
+}
+
+/// Dev builds only: optionally move the pet window to `to` (logical px from the
+/// work area's top-left), then report where the pet and bubble windows are.
+#[tauri::command]
+pub async fn debug_windows(app: AppHandle, to: Option<(f64, f64)>) -> tauri::Result<String> {
+    if !cfg!(debug_assertions) {
+        return Ok(String::new());
+    }
+    let (Some(main), Some(bubble)) = (app.get_webview_window("main"), app.get_webview_window("bubble")) else {
+        return Ok("missing window".into());
+    };
+    let k = scale(&main);
+    let p = main.outer_position()?;
+    let Some(area) = work_area(&main, (p.x as f64, p.y as f64)) else { return Ok("no monitor".into()) };
+    if let Some((x, y)) = to {
+        set_pos(&main, area.left + x * k, area.top + y * k);
+        std::thread::sleep(Duration::from_millis(600));
+    }
+    let (mp, ms, bp) = (main.outer_position()?, main.outer_size()?, bubble.outer_position()?);
+    Ok(format!(
+        "scale {k} area top {} pet ({}, {}) {}x{} bubble ({}, {})",
+        area.top, mp.x, mp.y, ms.width, ms.height, bp.x, bp.y
+    ))
 }

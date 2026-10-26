@@ -33,6 +33,8 @@ export const ipc = {
   dragEnd: () => invoke<"click" | "drop" | "throw" | "none">("drag_end"),
   setBody: (body: Rect) => invoke<void>("set_body", { body }),
   setHitRects: (rects: Rect[]) => invoke<void>("set_hit_rects", { rects }),
+  /** Where the speech bubble should point: [head x, head top, head half-width], or null when hidden. */
+  setBubble: (anchor: [number, number, number] | null) => invoke<void>("set_bubble", { anchor }),
   fall: () => invoke<void>("fall"),
   /** Move by `dx` at `speed` px/s; resolves to the actual distance once the move has started. */
   glideBy: (dx: number, speed: number, linear = false) => invoke<number>("glide_by", { dx, speed, linear }),

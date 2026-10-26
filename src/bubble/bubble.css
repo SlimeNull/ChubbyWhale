@@ -1,0 +1,103 @@
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+.bubble {
+  --tail: 50%;
+  position: absolute;
+  box-sizing: border-box;
+  max-width: 220px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #1d2a5c;
+  border: 2px solid #3d5bd9;
+  box-shadow: 0 3px 0 rgba(30, 50, 140, 0.25);
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 600;
+  word-break: break-word;
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.bubble.show {
+  opacity: 1;
+  transform: none;
+}
+
+/* Tail: an outer (border-colored) and inner (white) triangle. */
+.bubble::before,
+.bubble::after {
+  content: "";
+  position: absolute;
+  border: 8px solid transparent;
+}
+
+[data-side="above"] .bubble {
+  transform-origin: var(--tail) 100%;
+}
+
+[data-side="above"] .bubble::before,
+[data-side="above"] .bubble::after {
+  left: var(--tail);
+  transform: translateX(-50%);
+}
+
+[data-side="above"] .bubble::before {
+  top: 100%;
+  border-width: 9px;
+  border-top-color: #3d5bd9;
+}
+
+[data-side="above"] .bubble::after {
+  top: calc(100% - 3px);
+  border-top-color: #ffffff;
+}
+
+[data-side="right"] .bubble {
+  transform-origin: 0 var(--tail);
+}
+
+[data-side="right"] .bubble::before,
+[data-side="right"] .bubble::after,
+[data-side="left"] .bubble::before,
+[data-side="left"] .bubble::after {
+  top: var(--tail);
+  transform: translateY(-50%);
+}
+
+[data-side="right"] .bubble::before {
+  right: 100%;
+  border-width: 9px;
+  border-right-color: #3d5bd9;
+}
+
+[data-side="right"] .bubble::after {
+  right: calc(100% - 3px);
+  border-right-color: #ffffff;
+}
+
+[data-side="left"] .bubble {
+  transform-origin: 100% var(--tail);
+}
+
+[data-side="left"] .bubble::before {
+  left: 100%;
+  border-width: 9px;
+  border-left-color: #3d5bd9;
+}
+
+[data-side="left"] .bubble::after {
+  left: calc(100% - 3px);
+  border-left-color: #ffffff;
+}

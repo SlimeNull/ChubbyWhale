@@ -35,4 +35,5 @@
 - `pnpm build`（tsc 类型检查加 vite 构建）
 - 在 `src-tauri/` 下运行 `cargo clippy`，不能有新警告
 - 涉及拖拽、抛掷或窗口移动的改动：运行 `VITE_PET_DEMO=throw pnpm tauri dev`，确认 `debug/log.txt` 里 6 次都落地，并且没有 `STALL`
+- 测试实例要用 1430 端口启动，结束时只结束自己启动的进程，不要动用户正在跑的实例（做法见 STRUCTURE.md「开发和调试」）
 - 涉及渲染或姿势的改动：运行 `VITE_PET_DEMO=1 pnpm tauri dev`，查看 `debug/snap-*.png`

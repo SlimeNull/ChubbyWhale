@@ -1,5 +1,7 @@
 mod activity;
 mod llm;
+#[cfg(target_os = "macos")]
+mod macos;
 mod motion;
 mod store;
 
@@ -90,9 +92,12 @@ pub fn run() {
             motion::drag_end,
             motion::set_body,
             motion::set_hit_rects,
+            motion::set_bubble,
             motion::fall,
             motion::glide_by,
             motion::debug_throw,
+            motion::debug_probe_top,
+            motion::debug_windows,
             motion::set_pet_scale,
             store::store_load,
             store::store_save,
@@ -122,9 +127,18 @@ pub fn run() {
                 .menu(&build_menu(handle)?)
                 .build(app)?;
 
-            motion::place_initially(handle);
+            #[cfg(target_os = "macos")]
             if let Some(w) = app.get_webview_window("main") {
-                app.state::<motion::Motion>().start(w);
+                macos::allow_above_menu_bar(w.ns_window().unwrap_or(std::ptr::null_mut()));
+            }
+            motion::place_initially(handle);
+            // The speech bubble window never takes the mouse.
+            let bubble = app.get_webview_window("bubble");
+            if let Some(b) = &bubble {
+                b.set_ignore_cursor_events(true)?;
+            }
+            if let Some(w) = app.get_webview_window("main") {
+                app.state::<motion::Motion>().start(w, bubble);
             }
             Ok(())
         })

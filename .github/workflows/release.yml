@@ -25,6 +25,8 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true # sprites and icons are in Git LFS; the tray icon is compiled in
 
       - uses: pnpm/action-setup@v4
 

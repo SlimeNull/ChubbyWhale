@@ -52,7 +52,10 @@
 
 需要 Node.js、pnpm 和 Rust 工具链（另需各平台的 Tauri 依赖，见 [Tauri 文档](https://tauri.app/start/prerequisites/)）。
 
+图片、图标和音频存放在 Git LFS 中，克隆后先拉取：
+
 ```sh
+git lfs install && git lfs pull
 pnpm install
 pnpm tauri dev          # 开发运行
 pnpm tauri build        # 打包

@@ -18,7 +18,8 @@
 ├── settings.html             设置窗口页面（入口 src/settings/main.ts）
 ├── vite.config.ts            多页面构建：index + settings
 ├── package.json              pnpm；脚本 dev / build / tauri；devDependency @resvg/resvg-js（渲染托盘图标）
-├── .github/workflows/release.yml   推送 v* 标签后构建 macOS（arm64/x64）和 Windows 安装包，生成 Release 草稿
+├── .gitattributes            Git LFS 追踪的二进制：*.png *.webp *.ico *.icns *.wav *.mp3 *.ogg *.m4a *.flac
+├── .github/workflows/release.yml   推送 v* 标签后构建 macOS（arm64/x64）和 Windows 安装包，生成 Release 草稿（checkout 启用 lfs）
 ├── .claude/skills/sub2api-imagegen/  生图技能（Images API 脚本），美术流水线用
 ├── dist/                     vite 构建产物（已在 .gitignore 中）
 │
@@ -182,6 +183,7 @@
 
 ## 开发和调试
 
+- 克隆后需要 `git lfs install && git lfs pull`，否则图片、图标、音频都只是指针文件（托盘图标会被 `include_bytes!` 编进程序，指针会导致运行时出错）。新增二进制格式时要加到 `.gitattributes`。
 - `pnpm tauri dev`：开发运行。`pnpm build`：tsc 检查加 vite 构建。在 `src-tauri/` 下运行 `cargo clippy`。
 - `VITE_PET_DEMO=1 pnpm tauri dev`：依次播放全部姿势，把截图存到 `debug/snap-*.png`。
 - `VITE_PET_DEMO=throw pnpm tauri dev`：抛掷压力测试，结果写入 `debug/log.txt`（6 次 throw 的落地时间，以及后端往返耗时的最大值）。

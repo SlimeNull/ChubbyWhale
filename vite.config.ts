@@ -9,6 +9,7 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(() => ({
   build: {
     rollupOptions: {
+      // devpanel.html (debug panel) is deliberately not listed: dev server only, never shipped.
       input: {
         main: resolve(import.meta.dirname, "index.html"),
         settings: resolve(import.meta.dirname, "settings.html"),

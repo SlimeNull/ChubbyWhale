@@ -29,7 +29,8 @@
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "focus": false,
-        "visibleOnAllWorkspaces": true
+        "visibleOnAllWorkspaces": true,
+        "acceptFirstMouse": true
       },
       {
         "label": "bubble",

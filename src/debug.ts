@@ -1,9 +1,9 @@
 // Dev-only helpers: forward errors to a log file and, with VITE_PET_DEMO=1,
 // cycle through every pose and save a canvas snapshot of each.
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emitTo, listen } from "@tauri-apps/api/event";
 import { Rectangle } from "pixi.js";
-import type { MotionEvent } from "./ipc";
+import { ipc, type MotionEvent } from "./ipc";
 import type { Fx } from "./pet/fx";
 import type { Pet } from "./pet/pet";
 import type { Activity, PeekMotion } from "./pet/activities";
@@ -22,6 +22,7 @@ export function installDebug(rig: Rig, pet: Pet, fx: Fx) {
     };
   }
   window.addEventListener("error", (e) => log("uncaught", [e.error ?? e.message]));
+  installPanelBridge(rig, pet);
   window.addEventListener("unhandledrejection", (e) => log("unhandled", [e.reason]));
   log("info", ["debug installed", { dpr: devicePixelRatio, w: innerWidth, h: innerHeight }]);
 
@@ -43,6 +44,23 @@ export function installDebug(rig: Rig, pet: Pet, fx: Fx) {
     return;
   }
   if (import.meta.env.VITE_PET_DEMO === "dock") return dockTest(rig, pet, log);
+  if (import.meta.env.VITE_PET_DEMO === "gaze") return gazeFilm(rig, pet, log);
+  if (import.meta.env.VITE_PET_DEMO === "panel") {
+    // Smoke test: replay the panel's commands as if its buttons were clicked.
+    setTimeout(async () => {
+      const cmds: [string, unknown?][] = [
+        ["rest"], ["idle", "look"], ["idle", "giggle"], ["activity", "eat"], ["activity", "music"], ["wander"],
+        ["gaze-hold", "l"], ["gaze-hold", "ur"], ["gaze-hold", null], ["gaze-mode", "follow"],
+        ["dock", "right"], ["peek", "wave"], ["peek", "tuck"], ["activity", "read"], ["undock"],
+        ["sleep"], ["wake"], ["throw", [0, -1500]],
+      ];
+      for (const [cmd, arg] of cmds) {
+        await emitTo("main", "debug-cmd", { cmd, arg });
+        await new Promise((r) => setTimeout(r, 1800));
+      }
+      log("info", ["panel done"]);
+    }, 3000);
+  }
   if (import.meta.env.VITE_PET_DEMO === "probe") {
     setTimeout(async () => {
       for (const above of [0, 40, 150]) log("info", ["probe", above, await invoke("debug_probe_top", { above })]);
@@ -303,4 +321,133 @@ async function dockTest(rig: Rig, pet: Pet, log: (level: string, args: unknown[]
     await snap(`gaze-${name}`);
   }
   log("info", ["dock done"]);
+}
+
+/** Commands from the debug panel window (devpanel.html), and a live state readout for it. */
+function installPanelBridge(rig: Rig, pet: Pet) {
+  type Internals = {
+    toRest(): void;
+    poke(): void;
+    wander(): Promise<void>;
+    dock(side: "left" | "right"): void;
+    undock(): void;
+    peek(m: PeekMotion): Promise<void>;
+    activity(a: Activity): Promise<void>;
+    thrown(): void;
+    floorActions(): [string, number, () => void][];
+    place: string;
+    gaze: {
+      mode: string;
+      force(mode: "front" | "around" | "follow"): void;
+      hold(g: string | null): void;
+    };
+  };
+  const p = pet as unknown as Internals;
+  const reply = (msg: string) => {
+    dump("log.txt", `panel ${msg}`);
+    emitTo("devpanel", "debug-result", msg).catch(() => {});
+  };
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  listen<{ cmd: string; arg: unknown }>("debug-cmd", async ({ payload: { cmd, arg } }) => {
+    const { ACTIVITIES } = await import("./pet/activities");
+    switch (cmd) {
+      case "rest": p.toRest(); break;
+      case "sleep": pet.sleep(); break;
+      case "wake": pet.wake(); break;
+      case "say": pet.speak("chatter"); break;
+      case "poke": p.poke(); break;
+      case "gaze-mode":
+        p.toRest();
+        p.gaze.force(arg as "front" | "around" | "follow");
+        break;
+      case "gaze-hold":
+        if (arg !== null) p.toRest();
+        p.gaze.hold(arg as string | null);
+        break;
+      case "gaze-tour":
+        p.toRest();
+        for (const g of ["", "l", "ul", "u", "ur", "r", "d", ""]) {
+          p.gaze.hold(g);
+          await wait(1200);
+        }
+        p.gaze.hold(null);
+        break;
+      case "idle": {
+        p.toRest();
+        const found = p.floorActions().find(([name]) => name === arg);
+        if (found) found[2]();
+        else return reply(`没有这个动作：${arg}`);
+        break;
+      }
+      case "wander": p.toRest(); void p.wander(); break;
+      case "activity": {
+        p.toRest();
+        const a = ACTIVITIES.find((x) => x.id === arg);
+        if (a) void p.activity(a);
+        break;
+      }
+      case "dock": p.dock(arg as "left" | "right"); break;
+      case "undock":
+        p.undock();
+        p.toRest();
+        await ipc.glideBy(0, 600); // glide_by also brings her back on screen
+        break;
+      case "peek": p.toRest(); void p.peek(arg as PeekMotion); break;
+      case "throw": {
+        const [vx, vy] = arg as [number, number];
+        p.undock();
+        p.thrown();
+        await invoke("debug_throw", { vx, vy });
+        break;
+      }
+    }
+    await wait(150);
+    reply(`${cmd}${arg === undefined ? "" : ` ${JSON.stringify(arg)}`} → ${pet.mode} / ${rig.pose}`);
+  });
+
+  setInterval(() => {
+    emitTo("devpanel", "debug-state", {
+      place: p.place,
+      mode: pet.mode,
+      pose: rig.pose,
+      gazeMode: p.gaze.mode,
+      gaze: rig.gaze || "(正前)",
+      variant: rig.variant || "-",
+      size: `${innerWidth}×${innerHeight}`,
+    }).catch(() => {});
+  }, 300);
+}
+
+/** "Look around" for 30 s with snapshots every 0.6 s and a log of every eye change. */
+async function gazeFilm(rig: Rig, pet: Pet, log: (level: string, args: unknown[]) => void) {
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const p = pet as unknown as { toRest(): void; nextIdleAction: number; gaze: { force(m: string): void } };
+  setInterval(() => rig.app.ticker.update(performance.now()), 16);
+  await wait(3000);
+  p.toRest();
+  const t0 = performance.now();
+  let last = "?";
+  const watch = setInterval(() => {
+    const now = `${rig.gaze || "front"}${rig.variant === "idle_blink" ? "+blink" : ""}`;
+    if (now !== last) log("info", [`t=${((performance.now() - t0) / 1000).toFixed(2)}s eyes ${now}`]);
+    last = now;
+  }, 40);
+  await wait(3500); // the settle period after returning to rest
+  p.gaze.force("around");
+  for (let i = 0; i < 50; i++) {
+    // Keep her standing at rest (no idle actions, no sleep) so only the eyes change.
+    p.nextIdleAction = Infinity;
+    if (pet.mode !== "idle" || rig.pose !== "idle") {
+      p.toRest();
+      p.nextIdleAction = Infinity;
+      p.gaze.force("around");
+    }
+    await wait(600);
+    rig.app.ticker.update(performance.now());
+    const frame = new Rectangle(0, 0, innerWidth, innerHeight);
+    await dump(`snap-film-${String(i).padStart(2, "0")}.png`, await rig.app.renderer.extract.base64({ target: rig.app.stage, frame }));
+  }
+  clearInterval(watch);
+  log("info", ["gaze film done"]);
 }

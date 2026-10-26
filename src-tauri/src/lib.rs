@@ -23,6 +23,9 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &MenuItem::with_id(app, "reset", "回到屏幕角落", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "settings", "设置…", true, None::<&str>)?,
+            // Dev builds only: devpanel.html isn't part of the production frontend build.
+            #[cfg(debug_assertions)]
+            &MenuItem::with_id(app, "devpanel", "调试面板…", true, None::<&str>)?,
             &MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?,
         ],
     )
@@ -37,6 +40,20 @@ fn open_settings(app: &AppHandle) -> tauri::Result<()> {
         .title("大肥鱼 · 设置")
         .inner_size(480.0, 680.0)
         .min_inner_size(400.0, 480.0)
+        .build()?;
+    w.set_focus()
+}
+
+/// Dev builds only: buttons that trigger her actions (see devpanel.html / src/debug.ts).
+#[cfg(debug_assertions)]
+fn open_devpanel(app: &AppHandle) -> tauri::Result<()> {
+    if let Some(w) = app.get_webview_window("devpanel") {
+        w.show()?;
+        return w.set_focus();
+    }
+    let w = WebviewWindowBuilder::new(app, "devpanel", WebviewUrl::App("devpanel.html".into()))
+        .title("大肥鱼 · 调试面板")
+        .inner_size(380.0, 640.0)
         .build()?;
     w.set_focus()
 }
@@ -61,6 +78,10 @@ fn on_menu(app: &AppHandle, id: &str) {
         "reset" => motion::place_initially(app),
         "settings" => {
             let _ = open_settings(app);
+        }
+        #[cfg(debug_assertions)]
+        "devpanel" => {
+            let _ = open_devpanel(app);
         }
         "quit" => app.exit(0),
         _ => {}

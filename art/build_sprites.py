@@ -83,54 +83,29 @@ IDLE_VARIANTS = [
     ("idle_blink", "blink.png", EYE_ELLIPSES),
     ("idle_talk", "talk.png", MOUTH_ELLIPSES),
 ]
-GAZE_DIRS = ("l", "r", "u", "d", "ul", "ur")
-# Largest allowed difference between the two pupils' shifts (master px, ~0.3 px on screen per px).
-MAX_EYE_MISMATCH = 5.0
+# Gaze variants: which raw/gaze/ candidate each eye comes from, chosen by eye at
+# real display size (equal pupil shifts are NOT the goal — the model moves each
+# eye to suit its socket, so one image's two eyes usually belong together).
+# Looking straight down came out cross-eyed in every both-eye edit (the lower lids
+# slope toward the nose), so "d" combines two single-eye edits that also drift
+# slightly outward.
+GAZE_PICKS = {
+    "l": ("l-0", "l-0"),
+    "r": ("r-2", "r-0"),
+    "u": ("u-0", "u-0"),
+    "d": ("eye_left_d-3", "eye_right_d-3"),
+    "ul": ("ul-0", "ul-0"),
+    "ur": ("ur-1", "ur-1"),
+}
 
 
 def pupil(im: Image.Image, ellipse) -> tuple[float, float] | None:
-    """Centroid of the dark iris/pupil pixels inside one eye."""
+    """Centroid of the dark iris/pupil pixels inside one eye (for the build report)."""
     x0, y0, x1, y1 = ellipse
     a = np.array(im.convert("RGB").crop(ellipse)).astype(int)
     R, G, B = a[..., 0], a[..., 1], a[..., 2]
     ys, xs = np.nonzero((B > R + 50) & (B > G + 20) & (R + G + B < 330))
     return (x0 + xs.mean(), y0 + ys.mean()) if len(xs) > 200 else None
-
-
-def pick_gaze_eyes(direction: str, master: Image.Image):
-    """Choose a source image per eye so both pupils move by (nearly) the same vector.
-
-    The image model moves the eye on the side it looks toward much more than the
-    other one (looks cross-/wall-eyed), so candidates come from raw/gaze/:
-    <dir>-N.png (both eyes edited) and eye_left_<dir>-N / eye_right_<dir>-N
-    (one eye edited, small moves). Returns (left image, right image, shifts) or None.
-    """
-    base = [pupil(master, e) for e in EYE_ELLIPSES]
-    per_eye: list[list] = [[], []]
-    for f in sorted((RAW / "gaze").glob("*.png")):
-        stem = f.stem.rsplit("-", 1)[0]
-        eyes = {f"{direction}": (0, 1), f"eye_left_{direction}": (0,), f"eye_right_{direction}": (1,)}.get(stem)
-        if not eyes:
-            continue
-        im = clean_alpha(Image.open(f))
-        for i in eyes:
-            p = pupil(im, EYE_ELLIPSES[i])
-            if p and base[i]:
-                per_eye[i].append((np.subtract(p, base[i]), im, f.name))
-    if not per_eye[0] or not per_eye[1]:
-        return None
-    pairs = [(l, r) for l in per_eye[0] for r in per_eye[1]]
-    gap = lambda pr: float(np.linalg.norm(pr[0][0] - pr[1][0]))
-    # Prefer the biggest movement among well-matched pairs; anything off by more
-    # than MAX_EYE_MISMATCH looks cross-eyed, so that direction is left out.
-    close = [pr for pr in pairs if gap(pr) <= 3.5]
-    if close:
-        l, r = max(close, key=lambda pr: np.linalg.norm(pr[0][0] + pr[1][0]))
-    else:
-        l, r = min(pairs, key=gap)
-        if gap((l, r)) > MAX_EYE_MISMATCH:
-            return None
-    return l[1], r[1], (l[2], [round(float(v), 1) for v in l[0]], r[2], [round(float(v), 1) for v in r[0]])
 
 
 def clean_alpha(im: Image.Image) -> Image.Image:
@@ -236,16 +211,14 @@ def main():
                 if (RAW / raw).exists():
                     v = patch(im, clean_alpha(Image.open(RAW / raw)), ell)
                     export(vname, v, bbox, manifest["variants"])
-            # Gaze: each eye from whichever candidate keeps the two pupils parallel.
-            for d in GAZE_DIRS:
-                picked = pick_gaze_eyes(d, im)
-                if not picked:
-                    print(f"skip idle_gaze_{d}: no well-matched pair of eyes")
-                    continue
-                left, right, why = picked
+            # Gaze: left / right eye patched in from the picked candidates.
+            base = [pupil(im, e) for e in EYE_ELLIPSES]
+            for d, (lf, rf) in GAZE_PICKS.items():
+                left, right = (clean_alpha(Image.open(RAW / "gaze" / f"{f}.png")) for f in (lf, rf))
                 v = patch(patch(im, left, EYE_ELLIPSES[:1]), right, EYE_ELLIPSES[1:])
                 export(f"idle_gaze_{d}", v, bbox, manifest["variants"])
-                print(f"idle_gaze_{d}: left {why[0]} {why[1]}  right {why[2]} {why[3]}")
+                shifts = [np.round(np.subtract(pupil(v, e), b), 1).tolist() for e, b in zip(EYE_ELLIPSES, base)]
+                print(f"idle_gaze_{d}: {lf} + {rf}, pupil shifts L {shifts[0]} R {shifts[1]}")
 
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2))
     print(json.dumps(manifest, indent=2))

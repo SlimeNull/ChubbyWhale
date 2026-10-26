@@ -431,34 +431,34 @@ export class Pet {
   private idleTick() {
     if (this.mode !== "idle" || this.bubble.visible || performance.now() < this.nextIdleAction) return;
     this.nextIdleAction = performance.now() + rand(8000, 18000);
-    weighted(this.docked ? this.peekOptions() : this.floorOptions())();
+    weighted(this.docked ? this.peekOptions() : this.floorActions().map(([, w, run]): [number, () => void] => [w, run]))();
   }
 
-  /** What she may do by herself on the floor. */
-  private floorOptions(): [number, () => void][] {
+  /** What she may do by herself on the floor: [name, weight, start]. */
+  floorActions(): [string, number, () => void][] {
     const hour = new Date().getHours();
     const sleepy = hour >= 23 || hour < 6;
     const at = (pose: PoseName, ms: number, setup?: () => void) => () => void this.act(pose, ms, setup, ON_FLOOR);
     return [
-      [2.5, at("look", rand(2200, 3200), () => (this.rig.flip = chance(0.5)))],
-      [1.5, at("curious", 2600, () => this.fx.emit("question"))],
-      [sleepy ? 4 : 1.2, at("yawn", 2400, () => {
+      ["look", 2.5, at("look", rand(2200, 3200), () => (this.rig.flip = chance(0.5)))],
+      ["curious", 1.5, at("curious", 2600, () => this.fx.emit("question"))],
+      ["yawn", sleepy ? 4 : 1.2, at("yawn", 2400, () => {
         this.rig.breathRate = 0.6;
         if (chance(0.4)) this.mutter("yawn");
         playVoice("sleepy");
       })],
-      [1.5, at("happy", 2600, () => {
+      ["happy", 1.5, at("happy", 2600, () => {
         this.fx.emit("note", 3);
         this.rig.jump(18);
         playVoice("hum");
       })],
-      [1, at("giggle", 2200, () => this.fx.emit("note", 2))],
-      [2.5, () => void this.wander()],
-      [1.5, at("watch", rand(9000, 18000))],
-      [0.8, at("idle", 4000, () => (this.rig.bob = 5))],
+      ["giggle", 1, at("giggle", 2200, () => this.fx.emit("note", 2))],
+      ["wander", 2.5, () => void this.wander()],
+      ["watch", 1.5, at("watch", rand(9000, 18000))],
+      ["bob", 0.8, at("idle", 4000, () => (this.rig.bob = 5))],
       // Everyday activities (eating, gaming, reading…), never the same one twice in a row.
       ...ACTIVITIES.filter((a) => a.id !== this.lastActivity && a.frames.every((f) => this.rig.has(f))).map(
-        (a): [number, () => void] => [a.weight, () => void this.activity(a)],
+        (a): [string, number, () => void] => [a.id, a.weight, () => void this.activity(a)],
       ),
     ];
   }

@@ -1,0 +1,72 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f4f6fd;
+  --card: #ffffff;
+  --text: #1d2a5c;
+  --muted: #6a7499;
+  --accent: #3d5bd9;
+  --border: #dde3f5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12162a;
+    --card: #1b2140;
+    --text: #e3e8ff;
+    --muted: #9099c2;
+    --accent: #7b93ff;
+    --border: #2b3360;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.4 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+main {
+  padding: 10px;
+}
+
+#state {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+}
+
+#state[data-result]::after {
+  content: "\A→ " attr(data-result);
+  color: var(--muted);
+}
+
+section {
+  margin-bottom: 10px;
+}
+
+h2 {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+button {
+  margin: 0 4px 4px 0;
+  padding: 3px 9px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+button:active {
+  background: var(--accent);
+  color: #fff;
+}

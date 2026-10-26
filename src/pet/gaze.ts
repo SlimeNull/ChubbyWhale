@@ -39,6 +39,24 @@ export class GazeController {
     this.cursor = { x, y };
   }
 
+  /** A fixed direction (debug panel); while set, modes are suspended. */
+  private held: Gaze | null = null;
+
+  /** Debug: switch to `mode` now and stay in it for a minute. */
+  force(mode: GazeMode) {
+    this.held = null;
+    this.mode = mode;
+    this.until = performance.now() + 60_000;
+    this.nextGlance = 0;
+    this.lastShift = 0;
+  }
+
+  /** Debug: look in one direction until released with null. */
+  hold(g: Gaze | null) {
+    this.held = g;
+    if (g !== null) this.set(g);
+  }
+
   /** She just came back to rest: look straight ahead for a while before anything else. */
   rest() {
     this.mode = "front";
@@ -52,6 +70,7 @@ export class GazeController {
       if (this.rig.gaze) this.set("");
       return;
     }
+    if (this.held !== null) return this.set(this.held);
     const now = performance.now();
     if (now > this.until) this.switchMode(now);
 
@@ -61,7 +80,7 @@ export class GazeController {
       if (now > this.nextGlance) {
         this.nextGlance = now + rand(2000, 4500);
         // Often come back to center between glances.
-        const next = this.rig.gaze && Math.random() < 0.45 ? "" : pick<Gaze>(["l", "r", "ul", "ur", "d", "l", "r"]);
+        const next = this.rig.gaze && Math.random() < 0.45 ? "" : pick<Gaze>(["l", "r", "ul", "ur", "u", "d", "l", "r"]);
         this.shift(next, now);
       }
     } else if (now - this.lastShift > FOLLOW_DWELL) {

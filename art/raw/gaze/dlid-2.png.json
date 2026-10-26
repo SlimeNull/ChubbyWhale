@@ -1,0 +1,65 @@
+{
+  "timestamp_utc": "2026-10-26T15:38:06.938288+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2.5-sunburst",
+      "prompt": "这是一次局部修图。图1是编辑目标。\n只修改蒙版透明区域（两只眼睛）：让角色温柔地垂下视线、往下看（像在看桌面上的东西）——两只眼睛的上眼皮自然地向下垂一些（眼睛微微眯起，大约遮住瞳孔上方三分之一），瞳孔和高光略微下移，两只眼睛看同一个点，视线平行，不要对眼。睫毛形状随眼皮下垂而改变，保持同样的画风。\n必须保留：脸型、头发、刘海、脸颊红晕、嘴巴、画风、线条粗细、上色方式、颜色、构图和人物位置完全不变；背景保持真实透明。\n避免：完全闭眼、对眼、改动蒙版外的任何内容、添加文字或水印。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/ref/master.png"
+    ],
+    "mask": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/ref/mask_eyes.png"
+  },
+  "elapsed_seconds": 35.169,
+  "usage": {
+    "input_tokens": 1745,
+    "input_tokens_details": {
+      "image_tokens": 1520,
+      "text_tokens": 225
+    },
+    "output_tokens": 858,
+    "output_tokens_details": {
+      "image_tokens": 858,
+      "text_tokens": 0
+    },
+    "total_tokens": 2603
+  },
+  "response_metadata": {
+    "created": 1793029083,
+    "size": "1216x1294",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/raw/gaze/dlid-2.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1216,
+        1294
+      ],
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 760230,
+      "nonopaque_pixels": 1573124,
+      "fully_transparent_fraction": 0.483145,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2.5-sunburst",
+      "reported_size": "1216x1294",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求尺寸 1024x1536，实际尺寸 1216x1294。",
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

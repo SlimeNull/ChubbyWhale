@@ -45,6 +45,7 @@ export function installDebug(rig: Rig, pet: Pet, fx: Fx) {
   }
   if (import.meta.env.VITE_PET_DEMO === "dock") return dockTest(rig, pet, log);
   if (import.meta.env.VITE_PET_DEMO === "gaze") return gazeFilm(rig, pet, log);
+  if (import.meta.env.VITE_PET_DEMO === "follow") return followTest(rig, pet, log);
   if (import.meta.env.VITE_PET_DEMO === "panel") {
     // Smoke test: replay the panel's commands as if its buttons were clicked.
     setTimeout(async () => {
@@ -338,7 +339,7 @@ function installPanelBridge(rig: Rig, pet: Pet) {
     place: string;
     gaze: {
       mode: string;
-      force(mode: "front" | "around" | "follow"): void;
+      force(mode: "front" | "around" | "follow" | null): void;
       hold(g: string | null): void;
     };
   };
@@ -359,7 +360,7 @@ function installPanelBridge(rig: Rig, pet: Pet) {
       case "poke": p.poke(); break;
       case "gaze-mode":
         p.toRest();
-        p.gaze.force(arg as "front" | "around" | "follow");
+        p.gaze.force(arg as "front" | "around" | "follow" | null);
         break;
       case "gaze-hold":
         if (arg !== null) p.toRest();
@@ -450,4 +451,41 @@ async function gazeFilm(rig: Rig, pet: Pet, log: (level: string, args: unknown[]
   }
   clearInterval(watch);
   log("info", ["gaze film done"]);
+}
+
+/** Follow mode: a simulated cursor circles her head; log eyes + lean, snapshot frames. */
+async function followTest(rig: Rig, pet: Pet, log: (level: string, args: unknown[]) => void) {
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const p = pet as unknown as {
+    toRest(): void;
+    nextIdleAction: number;
+    gaze: { force(m: string | null): void; simulateCursor(pos: { x: number; y: number } | null): void };
+  };
+  setInterval(() => rig.app.ticker.update(performance.now()), 16);
+  await wait(3000);
+  p.toRest();
+  p.gaze.force("follow");
+  const h0 = rig.head();
+  const t0 = performance.now();
+  let last = "";
+  for (let i = 0; i < 160; i++) {
+    // One lap every 8 s, radius 260 px (well outside the dead zone).
+    const a = ((performance.now() - t0) / 8000) * Math.PI * 2;
+    const pos = { x: h0.x + Math.cos(a) * 260, y: h0.y + Math.sin(a) * 260 };
+    p.gaze.simulateCursor(pos);
+    if (pet.mode !== "idle") p.toRest(); // stay at rest so only the eyes / lean move
+    p.nextIdleAction = Infinity;
+    const now = `${rig.gaze || "front"} lean ${rig.leanTarget.toFixed(3)}`;
+    const deg = Math.round(((a * 180) / Math.PI) % 360);
+    if ((rig.gaze || "front") !== last.split(" ")[0]) log("info", [`t=${((performance.now() - t0) / 1000).toFixed(1)}s cursor at ${deg}° → eyes ${now}`]);
+    last = now;
+    if (i % 10 === 0) {
+      rig.app.ticker.update(performance.now());
+      const frame = new Rectangle(0, 0, innerWidth, innerHeight);
+      await dump(`snap-follow-${String(i / 10).padStart(2, "0")}.png`, await rig.app.renderer.extract.base64({ target: rig.app.stage, frame }));
+    }
+    await wait(100);
+  }
+  p.gaze.simulateCursor(null);
+  log("info", ["follow done"]);
 }

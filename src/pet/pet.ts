@@ -430,6 +430,11 @@ export class Pet {
 
   private idleTick() {
     if (this.mode !== "idle" || this.bubble.visible || performance.now() < this.nextIdleAction) return;
+    // Watching the mouse move: don't wander off to something else yet.
+    if (this.place === "floor" && this.gaze.watching) {
+      this.nextIdleAction = performance.now() + 3000;
+      return;
+    }
     this.nextIdleAction = performance.now() + rand(8000, 18000);
     weighted(this.docked ? this.peekOptions() : this.floorActions().map(([, w, run]): [number, () => void] => [w, run]))();
   }

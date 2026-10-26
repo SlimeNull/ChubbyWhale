@@ -83,17 +83,17 @@ IDLE_VARIANTS = [
     ("idle_blink", "blink.png", EYE_ELLIPSES),
     ("idle_talk", "talk.png", MOUTH_ELLIPSES),
 ]
-# Gaze variants: which raw/gaze/ candidate each eye comes from, chosen by eye at
-# real display size (equal pupil shifts are NOT the goal — the model moves each
-# eye to suit its socket, so one image's two eyes usually belong together).
-# Looking straight down came out cross-eyed in every both-eye edit (the lower lids
-# slope toward the nose), so "d" combines two single-eye edits that also drift
-# slightly outward.
+# Gaze variants: which raw/gaze/ candidate each eye comes from. Picked by
+# comparing with natural-gaze reference images generated for the purpose
+# (art/ref/look/<dir>.png, see AGENTS.md) at real display size. Equal pupil
+# shifts are NOT the goal: the model moves each eye to suit its socket, so one
+# image's two eyes usually belong together. (Looking down in this style means
+# wide-open eyes with the irises low and slightly inward — like the reference.)
 GAZE_PICKS = {
     "l": ("l-0", "l-0"),
     "r": ("r-2", "r-0"),
     "u": ("u-0", "u-0"),
-    "d": ("eye_left_d-3", "eye_right_d-3"),
+    "d": ("d-1", "d-1"),
     "ul": ("ul-0", "ul-0"),
     "ur": ("ur-1", "ur-1"),
 }

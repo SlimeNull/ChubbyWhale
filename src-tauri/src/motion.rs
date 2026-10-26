@@ -432,7 +432,8 @@ pub async fn drag_begin(window: WebviewWindow, motion: tauri::State<'_, Motion>)
     Ok(())
 }
 
-/// Mouse released. Returns "click", "drop" or "throw".
+/// Mouse released. Returns "click", "drop", "throw", or "edge-left" / "edge-right"
+/// when she was dropped pushed against a screen side (the frontend then docks her there).
 #[tauri::command]
 pub async fn drag_end(window: WebviewWindow, motion: tauri::State<'_, Motion>) -> tauri::Result<&'static str> {
     let k = scale(&window);
@@ -470,6 +471,15 @@ pub async fn drag_end(window: WebviewWindow, motion: tauri::State<'_, Motion>) -
     };
 
     if result == "drop" {
+        // Pushed against a screen side: let the frontend dock her there (peeking).
+        if let Some(a) = work_area(&window, body_center(&body, pos, k)) {
+            if pos.0 + body[0] * k <= a.left + 2.0 * k {
+                return Ok("edge-left");
+            }
+            if pos.0 + body[2] * k >= a.right - 2.0 * k {
+                return Ok("edge-right");
+            }
+        }
         // Dropped partly off-screen: glide back in.
         if let Some(to) = clamp_into_screen(&window, &body, pos, k) {
             let mut s = motion.0.lock().unwrap();
@@ -565,6 +575,25 @@ pub async fn debug_throw(window: WebviewWindow, motion: tauri::State<'_, Motion>
     Ok(())
 }
 
+/// Hide at a screen side: slide the window so window-local x `edge_x` (logical)
+/// lands exactly on the left / right screen edge, keeping the window-local
+/// vertical span `top..bottom` (the visible part) on screen.
+#[tauri::command]
+pub async fn dock(window: WebviewWindow, motion: tauri::State<'_, Motion>, side: String, edge_x: f64, top: f64, bottom: f64) -> tauri::Result<()> {
+    let k = scale(&window);
+    let p = window.outer_position()?;
+    let from = (p.x as f64, p.y as f64);
+    // Find the screen from the part of her that's visible (just inside the edge):
+    // once docked, her body center is off-screen and may lie on a neighbouring monitor.
+    let inside = if side == "left" { 12.0 } else { -12.0 };
+    let probe = (from.0 + (edge_x + inside) * k, from.1 + (top + bottom) / 2.0 * k);
+    let Some(a) = work_area(&window, probe) else { return Ok(()) };
+    let x = if side == "left" { a.left } else { a.right } - edge_x * k;
+    let y = from.1.clamp(a.top - top * k, (a.bottom - bottom * k).max(a.top - top * k));
+    motion.0.lock().unwrap().set_phase(Phase::Gliding { from, to: (x, y), start: Instant::now(), dur: 0.22, linear: false });
+    Ok(())
+}
+
 /// Resize the pet window to `factor` × the base size, keeping the feet (bottom
 /// center) where they are. Base size matches tauri.conf.json.
 #[tauri::command]
@@ -621,7 +650,7 @@ pub async fn debug_windows(app: AppHandle, to: Option<(f64, f64)>) -> tauri::Res
     }
     let (mp, ms, bp) = (main.outer_position()?, main.outer_size()?, bubble.outer_position()?);
     Ok(format!(
-        "scale {k} area top {} pet ({}, {}) {}x{} bubble ({}, {})",
-        area.top, mp.x, mp.y, ms.width, ms.height, bp.x, bp.y
+        "scale {k} area left {} top {} right {} pet ({}, {}) {}x{} bubble ({}, {})",
+        area.left, area.top, area.right, mp.x, mp.y, ms.width, ms.height, bp.x, bp.y
     ))
 }

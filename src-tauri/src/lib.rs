@@ -99,6 +99,7 @@ pub fn run() {
             motion::debug_probe_top,
             motion::debug_windows,
             motion::set_pet_scale,
+            motion::dock,
             store::store_load,
             store::store_save,
             store::data_dir,

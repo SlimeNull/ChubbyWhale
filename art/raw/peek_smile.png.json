@@ -1,0 +1,65 @@
+{
+  "timestamp_utc": "2026-10-26T14:04:06.036407+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2.5-sunburst",
+      "prompt": "这是一次修图。图1是编辑目标：角色从画面右边缘（一面看不见的墙）后面探出头来，只露出头部、一点肩膀和扒着墙边的手。\n保持构图、角色位置、大小以及身体被画面右边缘截断的方式完全不变，只修改：表情改成害羞地偷笑：眼睛眯成弯弯的线，脸颊更红，嘴巴抿着笑，头上冒出一个小爱心。\n必须保留：角色设计、发型、服装、画风、线条、上色方式、构图、人物在画面中的位置和大小完全不变；背景保持真实透明；无文字、无水印。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/ref/peek.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 42.525,
+  "usage": {
+    "input_tokens": 1666,
+    "input_tokens_details": {
+      "image_tokens": 1480,
+      "text_tokens": 186
+    },
+    "output_tokens": 1930,
+    "output_tokens_details": {
+      "image_tokens": 1930,
+      "text_tokens": 0
+    },
+    "total_tokens": 3596
+  },
+  "response_metadata": {
+    "created": 1793023444,
+    "size": "1216x1293",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/raw/peek_smile.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1216,
+        1293
+      ],
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 749620,
+      "nonopaque_pixels": 1571236,
+      "fully_transparent_fraction": 0.47677,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2.5-sunburst",
+      "reported_size": "1216x1293",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求尺寸 1024x1536，实际尺寸 1216x1293。",
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

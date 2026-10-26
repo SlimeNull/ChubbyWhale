@@ -4,8 +4,8 @@ import { ipc } from "../ipc";
 export type Chattiness = "quiet" | "normal" | "chatty";
 export type PetSize = "small" | "medium" | "large";
 
-/** Scale of the pet (and its window) for each size. */
-export const SIZE_SCALE: Record<PetSize, number> = { small: 0.75, medium: 1, large: 1.3 };
+/** Scale of the pet (and its window) for each size; 1 = 230px tall. */
+export const SIZE_SCALE: Record<PetSize, number> = { small: 0.55, medium: 0.75, large: 1 };
 
 export interface Settings {
   size: PetSize;

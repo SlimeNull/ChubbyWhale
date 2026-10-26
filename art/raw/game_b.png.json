@@ -1,0 +1,65 @@
+{
+  "timestamp_utc": "2026-10-26T14:05:01.819001+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2.5-sunburst",
+      "prompt": "这是一次修图。图1是编辑目标：角色坐在地上专心地玩掌上游戏机。\n保持构图、姿势、游戏机的位置、人物位置和大小完全不变，只修改表情：游戏赢了，眼睛睁大闪闪发光，张嘴开心地笑，头上冒出两个小星星。\n必须保留：角色设计、发型、服装、画风、线条、上色方式、构图、人物在画面中的位置和大小完全不变；背景保持真实透明；无文字、无水印。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/ref/game.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 42.398,
+  "usage": {
+    "input_tokens": 1663,
+    "input_tokens_details": {
+      "image_tokens": 1520,
+      "text_tokens": 143
+    },
+    "output_tokens": 1930,
+    "output_tokens_details": {
+      "image_tokens": 1930,
+      "text_tokens": 0
+    },
+    "total_tokens": 3593
+  },
+  "response_metadata": {
+    "created": 1793023500,
+    "size": "1216x1294",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/raw/game_b.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1216,
+        1294
+      ],
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 590357,
+      "nonopaque_pixels": 1572950,
+      "fully_transparent_fraction": 0.375186,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2.5-sunburst",
+      "reported_size": "1216x1294",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求尺寸 1024x1536，实际尺寸 1216x1294。",
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

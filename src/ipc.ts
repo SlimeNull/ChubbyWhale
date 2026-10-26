@@ -30,7 +30,7 @@ export const ipc = {
   requestTitlePermission: () => invoke<boolean>("request_title_permission"),
 
   dragBegin: () => invoke<void>("drag_begin"),
-  dragEnd: () => invoke<"click" | "drop" | "throw" | "none">("drag_end"),
+  dragEnd: () => invoke<"click" | "drop" | "throw" | "edge-left" | "edge-right" | "none">("drag_end"),
   setBody: (body: Rect) => invoke<void>("set_body", { body }),
   setHitRects: (rects: Rect[]) => invoke<void>("set_hit_rects", { rects }),
   /** Where the speech bubble should point: [head x, head top, head half-width], or null when hidden. */
@@ -39,6 +39,8 @@ export const ipc = {
   /** Move by `dx` at `speed` px/s; resolves to the actual distance once the move has started. */
   glideBy: (dx: number, speed: number, linear = false) => invoke<number>("glide_by", { dx, speed, linear }),
   setPetScale: (factor: number) => invoke<void>("set_pet_scale", { factor }),
+  /** Slide so window-local x `edgeX` sits on that screen edge; `top..bottom` stays on screen. */
+  dock: (side: "left" | "right", edgeX: number, top: number, bottom: number) => invoke<void>("dock", { side, edgeX, top, bottom }),
 
   storeLoad: <T>(name: "settings" | "memory") => invoke<T | null>("store_load", { name }),
   storeSave: (name: "settings" | "memory", value: unknown) => invoke<void>("store_save", { name, value }),

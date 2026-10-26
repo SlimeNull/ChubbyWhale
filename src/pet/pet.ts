@@ -1,4 +1,5 @@
-// The pet's body: idle behaviors, dragging/throwing reactions, poking, sleep.
+// The pet's body: idle life (gaze, activities, walking), docking at screen
+// sides, dragging/throwing reactions, poking, sleep.
 import { listen } from "@tauri-apps/api/event";
 import { engine } from "../audio/engine";
 import { playSfx } from "../audio/sfx";
@@ -7,7 +8,9 @@ import { ipc, type MotionEvent, type Rect } from "../ipc";
 import type { Memory } from "../brain/memory";
 import type { Voice } from "../brain/lines";
 import type { Bubble } from "./bubble";
+import { ACTIVITIES, PEEK_MOTIONS, type Activity, type PeekMotion } from "./activities";
 import type { Fx, FxKind } from "./fx";
+import { GazeController } from "./gaze";
 import type { PoseName, Rig } from "./rig";
 
 export type Emotion = "neutral" | "happy" | "cheer" | "curious" | "shocked" | "shy" | "look" | "hurt" | "sleepy" | "watch";
@@ -96,6 +99,12 @@ const REACTIONS = {
     // The art already has spiral eyes and stars.
     { pose: "hurt_dizzy", voice: "dizzy", line: "hurtDizzy" },
   ],
+  // Poked while peeking from a screen side.
+  pokePeek: [
+    { pose: "peek_smile", voice: "giggle", line: "pokePeek", fx: "heart" },
+    { pose: "peek_wave", voice: "happy", line: "pokePeek", fx: "note" },
+    { pose: "peek", voice: "surprised", line: "pokePeek", fx: "exclaim", squash: [1.1, 0.9] },
+  ],
   land: [
     { pose: "proud", voice: "cheer", line: "landProud", talk: 0.7, fx: "sparkle" },
     { pose: "happy", voice: "happy", line: "softLanding", talk: 0.6, fx: "note", jump: 14 },
@@ -105,9 +114,34 @@ const REACTIONS = {
 
 type ReactionKind = keyof typeof REACTIONS;
 
+/**
+ * State machine. Two parts:
+ *
+ *   place — where she is: "floor" (standing, or floating where she was dropped)
+ *           or docked at the "left" / "right" screen side, peeking.
+ *   mode  — what she's doing: "idle" (at rest) | "action" (an idle motion,
+ *           activity, walk, reaction or talking pose) | "drag" (held) | "fly"
+ *           (thrown) | "sleep".
+ *
+ *   idle ⇄ action      every behavior starts through begin(), which refuses it
+ *                      unless it's allowed at the current place (see ON_FLOOR /
+ *                      DOCKED / ANYWHERE) and she isn't held or flying
+ *   idle/action/sleep → drag     drag-start; leaves the dock
+ *   drag → idle@floor (drop) | fly (throw) | idle@left/right (dropped against a side)
+ *   fly → action@floor (hurt / landing reaction) → idle
+ *   idle/action → sleep (user away) → idle (wake), at the same place
+ *
+ * Returning to rest (toRest) always restores the place's rest pose, and for a
+ * dock its exact edge position, so an interrupted motion can't leave her stuck.
+ */
 type Mode = "idle" | "action" | "drag" | "fly" | "sleep";
+type Place = "floor" | "left" | "right";
 
-// Distance between the feet in walk_a / run_a at medium size, in px (see wander()).
+const ON_FLOOR: Place[] = ["floor"];
+const DOCKED: Place[] = ["left", "right"];
+const ANYWHERE: Place[] = ["floor", "left", "right"];
+
+// Distance between the feet in walk_a / run_a when she is 230px tall, in px (see wander()).
 const WALK_STRIDE = 72;
 const RUN_STRIDE = 100;
 const WALK_STEPS_PER_SEC = 2;
@@ -118,7 +152,10 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const chance = (p: number) => Math.random() < p;
 
 export class Pet {
-  mode: Mode = "idle";
+  private _mode: Mode = "idle";
+  private place: Place = "floor";
+  /** How far she is currently tucked behind the edge while docked (px). */
+  private dockHide = 0;
   private token = 0;
   private nextIdleAction = performance.now() + 6000;
   private pokes: number[] = [];
@@ -126,8 +163,12 @@ export class Pet {
   private lastDragVx = 0;
   private lastHitRects = "";
   private lastReaction: Partial<Record<ReactionKind, number>> = {};
+  private lastActivity = "";
   private flight: Reaction | null = null;
   private lastBoing = 0;
+  /** Timers owned by the current animation (activity effects, swaying); cleared on interruption. */
+  private animTimers: number[] = [];
+  private gaze: GazeController;
   /** Called whenever she says something, so the brain can remember it. */
   onSaid: (text: string, kind: string) => void = () => {};
   /** Called when the user pokes her (the brain may want to chat back). */
@@ -139,7 +180,10 @@ export class Pet {
     private bubble: Bubble,
     private voice: Voice,
     private memory: Memory,
-  ) {}
+  ) {
+    this.gaze = new GazeController(rig);
+    this.gaze.onShift = () => this.blinkOnce();
+  }
 
   async start() {
     this.bindPointer();
@@ -147,16 +191,30 @@ export class Pet {
     setInterval(() => this.mouth(), 110);
     setInterval(() => this.idleTick(), 1000);
     setInterval(() => this.syncHitRects(), 80);
+    setInterval(() => this.gaze.update(this.mode === "idle" && this.place === "floor" && this.rig.pose === "idle" && !this.bubble.talking), 120);
     this.bubble.onChange = () => this.placeBubble();
     this.rig.app.ticker.add(() => this.bubble.visible && this.placeBubble());
-    // The window is resized when the pet size changes; the physics body follows.
-    window.addEventListener("resize", () => ipc.setBody(this.rig.bodyRect()));
+    // The window is resized when the pet size changes; the physics body (and a dock) follow.
+    window.addEventListener("resize", () => {
+      ipc.setBody(this.rig.bodyRect());
+      if (this.docked) this.dockAt(this.docked, this.dockHide);
+    });
 
     await ipc.setBody(this.rig.bodyRect());
     await listen<MotionEvent>("pet-motion", (e) => this.onMotion(e.payload));
-    await listen<[number, number]>("pet-cursor", (e) => this.onCursor(e.payload[0]));
+    await listen<[number, number]>("pet-cursor", (e) => this.gaze.onCursor(e.payload[0], e.payload[1]));
   }
 
+  get mode(): Mode {
+    return this._mode;
+  }
+
+  /** Screen side she is hiding at, or null on the floor. */
+  get docked(): "left" | "right" | null {
+    return this.place === "floor" ? null : this.place;
+  }
+
+  /** Busy = shouldn't be interrupted by unprompted remarks. Resting while docked counts as free. */
   get busy() {
     return this.mode !== "idle" || this.bubble.visible;
   }
@@ -165,7 +223,65 @@ export class Pet {
     return this.mode === "sleep";
   }
 
-  /** Say a line with an emotion; holds the matching pose while the bubble is up. */
+  /** The pose she returns to: standing, or peeking when docked. */
+  private get restPose(): PoseName {
+    return this.docked ? "peek" : "idle";
+  }
+
+  // ---------- state machine core ----------
+
+  /**
+   * Start a behavior if it's allowed here and now. Returns its token (compare
+   * with this.token later to know whether it was interrupted), or null if refused.
+   * `preempt`: may interrupt another action (reactions, talking); idle motions may not.
+   */
+  private begin(places: Place[], preempt = true): number | null {
+    if (!places.includes(this.place)) return null;
+    if (this.mode === "drag" || this.mode === "fly") return null;
+    if (!preempt && this.mode !== "idle") return null;
+    if (this.mode === "sleep") this.fx.sleeping = false;
+    this.stopAnims();
+    this._mode = "action";
+    return ++this.token;
+  }
+
+  /** Back to rest at the current place (rest pose, exact dock position, eyes forward). */
+  private toRest(pop = true) {
+    this.stopAnims();
+    this.token++;
+    this._mode = "idle";
+    this.rig.setPose(this.restPose, pop);
+    this.rig.flip = this.place === "left";
+    this.rig.bob = 0;
+    this.rig.breathRate = 1;
+    this.rig.leanTarget = 0;
+    if (this.docked && this.dockHide !== 0) this.dockAt(this.docked, 0);
+    this.gaze.rest();
+    this.nextIdleAction = performance.now() + rand(7000, 16000);
+  }
+
+  /** Hold a pose for a while, then return to rest — if allowed at the current place. */
+  async act(pose: PoseName, ms: number, setup?: () => void, places = ANYWHERE): Promise<boolean> {
+    const my = this.begin(places);
+    if (my === null) return false;
+    this.rig.setPose(pose);
+    setup?.();
+    await sleep(ms);
+    if (my !== this.token) return false;
+    this.toRest();
+    return true;
+  }
+
+  /** Stop frame cycles (walk, chewing…) and the current animation's timers. */
+  private stopAnims() {
+    this.rig.stopCycle();
+    this.animTimers.forEach((t) => clearInterval(t));
+    this.animTimers = [];
+  }
+
+  // ---------- talking ----------
+
+  /** Say a line with an emotion; holds a matching pose (for this place) while the bubble is up. */
   say(text: string, emotion: Emotion = "neutral", kind = "say", ms?: number) {
     this.bubble.show(text, ms);
     this.onSaid(text, kind);
@@ -174,13 +290,16 @@ export class Pet {
     if (this.mode === "sleep") this.wake(false);
     const fx = EMOTION_FX[emotion];
     if (fx) this.fx.emit(fx, fx === "note" || fx === "heart" ? 2 : 1);
-    const pose = EMOTION_POSE[emotion];
-    const hold = ms ?? Math.min(9000, 2600 + text.length * 160) + text.length * 55;
-    if (pose === "idle") {
-      this.rig.jump(10);
-    } else {
-      this.act(pose, Math.min(hold, 5000));
+    const hold = Math.min(5000, ms ?? Math.min(9000, 2600 + text.length * 160) + text.length * 55);
+    if (this.docked) {
+      // Stay hidden; only the face changes.
+      const happy = emotion === "happy" || emotion === "cheer" || emotion === "shy";
+      this.act(happy ? "peek_smile" : "peek", hold, undefined, DOCKED);
+      return;
     }
+    const pose = EMOTION_POSE[emotion];
+    if (pose === "idle") this.rig.jump(10);
+    else this.act(pose, hold, undefined, ON_FLOOR);
   }
 
   /** Say a line from the bank. */
@@ -189,17 +308,12 @@ export class Pet {
     this.say(text, emotion, kind);
   }
 
-  /** Hold a pose for a while, then return to idle unless interrupted. */
-  async act(pose: PoseName, ms: number, setup?: () => void) {
-    this.stopWalking();
-    const my = ++this.token;
-    this.mode = "action";
-    this.rig.setPose(pose);
-    setup?.();
-    await sleep(ms);
-    if (my !== this.token) return false;
-    this.toIdle();
-    return true;
+  /** Line from the bank in a bubble, without changing her pose. */
+  private mutter(kind: string, chanceToSay = 1) {
+    if (!chance(chanceToSay)) return;
+    const { text } = this.voice.line(kind);
+    this.bubble.show(text);
+    this.onSaid(text, kind);
   }
 
   /**
@@ -228,30 +342,16 @@ export class Pet {
     return r;
   }
 
-  /** Stop a walk / run cycle (its footsteps stop with it), also when interrupted. */
-  private stopWalking() {
-    this.rig.stopCycle();
-  }
-
-  private toIdle(pop = true) {
-    this.stopWalking();
-    this.token++;
-    this.mode = "idle";
-    this.rig.setPose("idle", pop);
-    this.rig.flip = false;
-    this.rig.bob = 0;
-    this.rig.breathRate = 1;
-    this.rig.leanTarget = 0;
-    this.nextIdleAction = performance.now() + rand(7000, 16000);
-  }
+  // ---------- sleep ----------
 
   sleep() {
     if (this.mode === "drag" || this.mode === "fly" || this.mode === "sleep") return;
-    this.stopWalking();
+    this.stopAnims();
     this.token++;
-    this.mode = "sleep";
+    this._mode = "sleep";
     this.bubble.hide();
-    this.rig.setPose("sleep");
+    if (this.docked && this.dockHide !== 0) this.dockAt(this.docked, 0);
+    this.rig.setPose(this.docked ? "peek_sleepy" : "sleep");
     this.rig.breathRate = 0.45;
     this.fx.sleeping = true;
     playVoice("sleepy");
@@ -260,28 +360,64 @@ export class Pet {
   wake(greet = true) {
     if (this.mode !== "sleep") return;
     this.fx.sleeping = false;
-    this.toIdle();
+    this.toRest();
     if (greet) this.speak("wake");
+  }
+
+  // ---------- docking at a screen side ----------
+
+  /** Hide at a screen side, peeking out (after being dropped against it). */
+  private dock(side: "left" | "right") {
+    this.place = side;
+    this.rig.hang = null;
+    this.rig.looseness = 1;
+    this.dockHide = 0;
+    this.toRest();
+    this.rig.squash(1, 1.06);
+    this.dockAt(side, 0);
+    playSfx("puff");
+    playVoice("curious");
+    this.mutter("peekIn", 0.5);
+  }
+
+  /**
+   * Slide the window so the grip edge of the peek art sits on the screen edge.
+   * `hide` > 0 (px) tucks her that much further behind the edge.
+   */
+  private dockAt(side: "left" | "right", hide: number) {
+    const e = this.rig.edge(side);
+    // The screen edge lands `hide` px inside her, so that much goes off-screen.
+    const x = e.x + (side === "right" ? -hide : hide);
+    this.dockHide = hide;
+    this.rig.clip = { side, x };
+    ipc.dock(side, x, e.top, e.bottom);
+  }
+
+  private undock() {
+    this.place = "floor";
+    this.dockHide = 0;
+    this.rig.clip = null;
   }
 
   // ---------- idle life ----------
 
   private blinkLoop() {
     const blink = async () => {
-      if (this.rig.pose === "idle" && this.rig.variant !== "idle_talk") {
-        this.rig.variant = "idle_blink";
-        await sleep(120);
-        if (this.rig.variant === "idle_blink") this.rig.variant = "";
-        if (chance(0.2)) {
-          await sleep(140);
-          this.rig.variant = "idle_blink";
-          await sleep(110);
-          if (this.rig.variant === "idle_blink") this.rig.variant = "";
-        }
+      await this.blinkOnce();
+      if (chance(0.2)) {
+        await sleep(140);
+        await this.blinkOnce();
       }
       setTimeout(blink, rand(2200, 5600));
     };
     setTimeout(blink, 1500);
+  }
+
+  private async blinkOnce() {
+    if (this.rig.pose !== "idle" || this.rig.variant === "idle_talk") return;
+    this.rig.variant = "idle_blink";
+    await sleep(120);
+    if (this.rig.variant === "idle_blink") this.rig.variant = "";
   }
 
   private mouth() {
@@ -292,62 +428,156 @@ export class Pet {
     }
   }
 
-  private onCursor(x: number) {
-    if (this.mode !== "idle") return;
-    const dx = x - this.rig.floor.x;
-    this.rig.leanTarget = Math.max(-0.035, Math.min(0.035, dx / 5000));
-  }
-
   private idleTick() {
     if (this.mode !== "idle" || this.bubble.visible || performance.now() < this.nextIdleAction) return;
+    this.nextIdleAction = performance.now() + rand(8000, 18000);
+    weighted(this.docked ? this.peekOptions() : this.floorOptions())();
+  }
+
+  /** What she may do by herself on the floor. */
+  private floorOptions(): [number, () => void][] {
     const hour = new Date().getHours();
     const sleepy = hour >= 23 || hour < 6;
-    const actions: [number, () => void][] = [
-      [3, () => this.act("look", rand(2200, 3200), () => (this.rig.flip = chance(0.5)))],
-      [2, () => this.act("curious", 2600, () => this.fx.emit("question"))],
-      [sleepy ? 4 : 1.5, () => this.act("yawn", 2400, () => {
+    const at = (pose: PoseName, ms: number, setup?: () => void) => () => void this.act(pose, ms, setup, ON_FLOOR);
+    return [
+      [2.5, at("look", rand(2200, 3200), () => (this.rig.flip = chance(0.5)))],
+      [1.5, at("curious", 2600, () => this.fx.emit("question"))],
+      [sleepy ? 4 : 1.2, at("yawn", 2400, () => {
         this.rig.breathRate = 0.6;
-        if (chance(0.4)) this.speak("yawn");
-        else playVoice("sleepy");
+        if (chance(0.4)) this.mutter("yawn");
+        playVoice("sleepy");
       })],
-      [2, () => this.act("happy", 2600, () => {
+      [1.5, at("happy", 2600, () => {
         this.fx.emit("note", 3);
         this.rig.jump(18);
         playVoice("hum");
       })],
-      [1, () => this.act("giggle", 2200, () => this.fx.emit("note", 2))],
-      [2.5, () => this.wander()],
-      [2, () => this.act("watch", rand(9000, 18000))],
-      [1, () => this.act("idle", 4000, () => (this.rig.bob = 5))],
+      [1, at("giggle", 2200, () => this.fx.emit("note", 2))],
+      [2.5, () => void this.wander()],
+      [1.5, at("watch", rand(9000, 18000))],
+      [0.8, at("idle", 4000, () => (this.rig.bob = 5))],
+      // Everyday activities (eating, gaming, reading…), never the same one twice in a row.
+      ...ACTIVITIES.filter((a) => a.id !== this.lastActivity && a.frames.every((f) => this.rig.has(f))).map(
+        (a): [number, () => void] => [a.weight, () => void this.activity(a)],
+      ),
     ];
-    let r = Math.random() * actions.reduce((s, [w]) => s + w, 0);
-    for (const [w, run] of actions) {
-      if ((r -= w) <= 0) {
-        run();
+  }
+
+  /** What she may do by herself while docked: only small motions at the edge. */
+  private peekOptions(): [number, () => void][] {
+    const hour = new Date().getHours();
+    return PEEK_MOTIONS.map(([m, w]): [number, () => void] => [m === "doze" && (hour >= 23 || hour < 6) ? w * 4 : w, () => void this.peek(m)]);
+  }
+
+  private async activity(a: Activity) {
+    const my = this.begin(ON_FLOOR, false);
+    if (my === null) return;
+    this.lastActivity = a.id;
+    this.rig.flip = chance(0.5);
+    this.rig.setPose(a.frames[0]);
+    if (a.frames.length > 1) this.rig.playCycle(a.frames, a.fps ?? 2, { stepsPerFrame: 0 });
+    if (a.voiceStart) playVoice(a.voiceStart);
+    if (a.line) this.mutter(a.line, a.talk ?? 0.4);
+    if (a.fx) {
+      const { kind, everyMs, count } = a.fx;
+      this.animTimers.push(window.setInterval(() => this.fx.emit(kind, count ?? 1), everyMs));
+    }
+    if (a.sway) {
+      let dir = 1;
+      this.animTimers.push(window.setInterval(() => (this.rig.leanTarget = (dir *= -1) * a.sway!), 600));
+    }
+    await sleep(rand(...a.secs) * 1000);
+    if (my !== this.token) return;
+    if (a.voiceEnd) playVoice(a.voiceEnd);
+    this.toRest();
+  }
+
+  /** Small motions while hiding at a screen side. */
+  private async peek(m: PeekMotion) {
+    const side = this.docked;
+    if (!side) return;
+    const at = (pose: PoseName, ms: number, setup?: () => void) => this.act(pose, ms, setup, DOCKED);
+    switch (m) {
+      case "wave":
+        await at("peek_wave", 2200, () => {
+          this.fx.emit("note");
+          if (chance(0.5)) playVoice("happy");
+        });
+        break;
+      case "smile":
+        await at("peek_smile", 2000, () => this.fx.emit("heart"));
+        break;
+      case "curious":
+        await at("peek", 2000, () => {
+          this.fx.emit("question");
+          this.rig.leanTarget = side === "right" ? -0.05 : 0.05;
+        });
+        break;
+      case "lean-out":
+        // Crane her head out from the edge; the hands stay put.
+        await at("peek", rand(1500, 2500), () => {
+          this.rig.leanTarget = side === "right" ? -0.09 : 0.09;
+          this.fx.emit("exclaim");
+        });
+        break;
+      case "doze":
+        await at("peek_sleepy", rand(5000, 9000), () => {
+          this.fx.sleeping = true;
+          this.rig.breathRate = 0.5;
+        });
+        if (this.mode !== "sleep") this.fx.sleeping = false;
+        break;
+      case "tilt": {
+        const my = this.begin(DOCKED, false);
+        if (my === null) return;
+        this.rig.setPose("peek", false);
+        for (const lean of [0.05, -0.05, 0.04, 0]) {
+          this.rig.leanTarget = lean;
+          await sleep(450);
+          if (my !== this.token) return;
+        }
+        this.toRest(false);
+        break;
+      }
+      case "tuck": {
+        // Duck behind the edge (only a sliver stays visible), wait, peek out again.
+        // If interrupted, toRest() puts her back at the edge.
+        const my = this.begin(DOCKED, false);
+        if (my === null) return;
+        this.rig.setPose("peek", false);
+        this.dockAt(side, this.rig.edge(side).width * 0.75);
+        await sleep(rand(1200, 2600));
+        if (my !== this.token) return;
+        this.dockAt(side, 0);
+        playSfx("pop", 0.3);
+        await sleep(400);
+        if (my === this.token) this.toRest(false);
         break;
       }
     }
-    this.nextIdleAction = performance.now() + rand(8000, 18000);
   }
 
   /** Walk (or sometimes run) along the bottom of the screen. */
   private async wander() {
+    const my = this.begin(ON_FLOOR, false);
+    if (my === null) return;
     const run = chance(0.3) && this.rig.has("run_a");
     const dir = chance(0.5) ? -1 : 1;
     const size = this.rig.height / 230;
     // Move exactly one stride per step so the planted foot doesn't slide.
-    // Strides are the distance between the feet in walk_a / run_a at medium size
-    // (measure with the snippet in docs/STRUCTURE.md if the art changes).
+    // Strides are the distance between the feet in walk_a / run_a when she is
+    // 230px tall (measure with the snippet in docs/STRUCTURE.md if the art changes).
     const stepsPerSec = run ? RUN_STEPS_PER_SEC : WALK_STEPS_PER_SEC;
     const speed = (run ? RUN_STRIDE : WALK_STRIDE) * stepsPerSec * size;
     const dist = (run ? rand(220, 420) : rand(120, 320)) * size;
-    const my = ++this.token;
-    this.mode = "action";
     const moved = await ipc.glideBy(dir * dist, speed, true).catch(() => 0);
     if (my !== this.token) return;
     if (Math.abs(moved) < 8) {
       // Blocked by the screen edge: look that way instead.
-      this.act("look", 1800, () => (this.rig.flip = dir > 0));
+      this.rig.setPose("look");
+      this.rig.flip = dir > 0;
+      await sleep(1800);
+      if (my === this.token) this.toRest();
       return;
     }
     // The walk / run art faces left.
@@ -363,7 +593,7 @@ export class Pet {
     }
     await sleep((Math.abs(moved) / speed) * 1000);
     if (my !== this.token) return; // interrupted: whoever took over already stopped the walk
-    this.toIdle(false);
+    this.toRest(false);
     this.rig.squash(1.08, 0.94);
   }
 
@@ -387,6 +617,8 @@ export class Pet {
       if (r === "click") this.poke();
       else if (r === "drop") this.dropped();
       else if (r === "throw") this.thrown();
+      else if (r === "edge-left") this.dock("left");
+      else if (r === "edge-right") this.dock("right");
     });
     el.addEventListener("contextmenu", (e) => {
       e.preventDefault();
@@ -400,31 +632,33 @@ export class Pet {
     this.pokes = this.pokes.filter((t) => now - t < 4000).concat(now);
     playSfx("pop");
     if (this.mode === "sleep") return this.speak("pokeAwake");
-    if (this.mode === "drag" || this.mode === "fly") return;
     const spam = this.pokes.length >= 4;
+    const my = this.begin(ANYWHERE);
+    if (my === null) return;
     if (spam) this.pokes = [];
-    const my = ++this.token;
-    this.mode = "action";
-    this.react(spam ? "pokeSpam" : "poke");
+    this.react(this.docked ? "pokePeek" : spam ? "pokeSpam" : "poke");
     if (!spam) this.onPoke();
-    sleep(spam ? 2600 : 2000).then(() => my === this.token && this.toIdle());
+    sleep(spam ? 2600 : 2000).then(() => my === this.token && this.toRest());
   }
 
   private onMotion(e: MotionEvent) {
     switch (e.kind) {
       case "drag-start": {
-        this.stopWalking();
+        this.stopAnims();
+        this.undock();
         this.token++;
-        this.mode = "drag";
+        this._mode = "drag";
         this.memory.bump("drags");
         this.fx.sleeping = false;
         this.fx.stopDizzy();
         this.rig.flip = false;
         this.rig.flying = false;
+        this.rig.leanTarget = 0;
+        this.rig.gaze = "";
         // Hold her by the collar; keep the dangling body inside the window.
         const h = this.rig.height;
         this.rig.hang = {
-          x: Math.max(70, Math.min(window.innerWidth - 70, this.grab.x)),
+          x: Math.max(h * 0.3, Math.min(window.innerWidth - h * 0.3, this.grab.x)),
           y: Math.max(h * 0.3 + 10, Math.min(window.innerHeight - h * 0.72, this.grab.y)),
         };
         this.rig.squash(0.92, 1.12);
@@ -463,19 +697,21 @@ export class Pet {
   }
 
   private dropped() {
+    this.place = "floor";
     this.rig.hang = null;
     this.rig.looseness = 1;
-    this.toIdle();
+    this.toRest();
     this.rig.squash(1.1, 0.9);
     playSfx("puff");
     if (chance(0.25)) this.speak("drop");
   }
 
   private thrown() {
+    this.place = "floor";
     this.rig.hang = null;
     this.rig.looseness = 1;
     this.rig.flying = true;
-    this.mode = "fly";
+    this._mode = "fly";
     playSfx("whoosh");
     const n = this.memory.bump("throws");
     this.flight = this.react("fly");
@@ -493,28 +729,28 @@ export class Pet {
     this.rig.rotationTarget = 0;
     this.rig.rotation = 0;
     this.flight = null;
-    this.mode = "idle";
+    this._mode = "idle";
     if (impact > 1100) {
       this.rig.squash(1.3, 0.7);
       playSfx("thud", impact / 3000);
-      const my = ++this.token;
-      this.mode = "action";
+      const my = this.begin(ON_FLOOR);
+      if (my === null) return;
       const r = this.react("hurt", {}, 3200);
       if (r.dizzy || r.pose === "hurt_dizzy") playSfx("dizzy");
       await sleep(3800);
       if (my !== this.token) return;
-      this.toIdle();
+      this.toRest();
       if (chance(0.5)) this.speak("hurtAfter");
     } else if (impact > 500) {
       this.rig.squash(1.18, 0.84);
       playSfx("softland");
-      const my = ++this.token;
-      this.mode = "action";
+      const my = this.begin(ON_FLOOR);
+      if (my === null) return;
       this.react("land");
       await sleep(2200);
-      if (my === this.token) this.toIdle();
+      if (my === this.token) this.toRest();
     } else {
-      this.toIdle();
+      this.toRest();
       this.rig.squash(1.12, 0.9);
       playSfx("softland", 0.3);
     }
@@ -529,13 +765,25 @@ export class Pet {
 
   private syncHitRects() {
     const b = this.rig.bounds();
-    // Trim the transparent margins of the illustration a little.
-    const body: Rect = [b.x + b.width * 0.12, b.y + b.height * 0.04, b.right - b.width * 0.12, b.bottom];
-    const rects: Rect[] = [body];
+    // Trim the transparent margins of the illustration a little; when docked,
+    // only the part on this side of the screen edge counts.
+    let [l, r] = [b.x + b.width * 0.12, b.right - b.width * 0.12];
+    if (this.rig.clip) {
+      if (this.rig.clip.side === "right") r = Math.min(r, this.rig.clip.x);
+      else l = Math.max(l, this.rig.clip.x);
+    }
+    const rects: Rect[] = [[l, b.y + b.height * 0.04, r, b.bottom]];
     const key = rects.map((r) => r.map(Math.round).join(",")).join("|");
     if (key !== this.lastHitRects) {
       this.lastHitRects = key;
       ipc.setHitRects(rects);
     }
   }
+}
+
+/** Run one of the options, picked with probability proportional to its weight. */
+function weighted(options: [number, () => void][]): () => void {
+  let r = Math.random() * options.reduce((s, [w]) => s + w, 0);
+  for (const [w, run] of options) if ((r -= w) <= 0) return run;
+  return options[options.length - 1][1];
 }

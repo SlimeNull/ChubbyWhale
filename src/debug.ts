@@ -6,6 +6,7 @@ import { Rectangle } from "pixi.js";
 import type { MotionEvent } from "./ipc";
 import type { Fx } from "./pet/fx";
 import type { Pet } from "./pet/pet";
+import type { Activity, PeekMotion } from "./pet/activities";
 import type { PoseName, Rig } from "./pet/rig";
 
 const dump = (name: string, data: string) => invoke("debug_dump", { name, data }).catch(() => {});
@@ -41,6 +42,7 @@ export function installDebug(rig: Rig, pet: Pet, fx: Fx) {
     setInterval(() => rig.app.ticker.update(performance.now()), 16);
     return;
   }
+  if (import.meta.env.VITE_PET_DEMO === "dock") return dockTest(rig, pet, log);
   if (import.meta.env.VITE_PET_DEMO === "probe") {
     setTimeout(async () => {
       for (const above of [0, 40, 150]) log("info", ["probe", above, await invoke("debug_probe_top", { above })]);
@@ -67,7 +69,8 @@ export function installDebug(rig: Rig, pet: Pet, fx: Fx) {
   const poses: PoseName[] = ["idle", "look", "yawn", "sleep", "fly", "hurt", "happy", "cheer", "curious", "shocked", "watch", "shy"];
   (async () => {
     await wait(4000);
-    pet.mode = "action";
+    // Hold her in an action so idle behaviors don't change the pose under the snapshots.
+    (pet as unknown as { begin(places: string[]): number | null }).begin(["floor", "left", "right"]);
     for (const p of poses) {
       rig.setPose(p, false);
       if (p === "hurt") fx.startDizzy(3);
@@ -201,10 +204,10 @@ async function featureTest(rig: Rig, pet: Pet, log: (level: string, args: unknow
   rig.hang = null;
   rig.flying = false;
   rig.spin = 0;
-  const wander = (pet as unknown as { wander(): Promise<void> }).wander.bind(pet);
+  const internals = pet as unknown as { wander(): Promise<void>; toRest(): void };
   for (let k = 0; k < 4; k++) {
-    pet.mode = "idle";
-    const done = wander();
+    internals.toRest();
+    const done = internals.wander();
     for (let f = 0; f < 3; f++) {
       await wait(170);
       await snap(`move${k}-${f}`);
@@ -214,4 +217,90 @@ async function featureTest(rig: Rig, pet: Pet, log: (level: string, args: unknow
   }
   clearInterval(tick);
   log("info", ["features done"]);
+}
+
+/** Docking at both screen sides, every peek motion, every activity, and gaze modes. */
+async function dockTest(rig: Rig, pet: Pet, log: (level: string, args: unknown[]) => void) {
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const p = pet as unknown as {
+    dock(side: "left" | "right"): void;
+    peek(m: PeekMotion): Promise<void>;
+    activity(a: Activity): Promise<void>;
+    toRest(): void;
+    undock(): void;
+    gaze: { mode: string; update(active: boolean): void; onCursor(x: number, y: number): void };
+  };
+  const { ACTIVITIES, PEEK_MOTIONS } = await import("./pet/activities");
+  setInterval(() => rig.app.ticker.update(performance.now()), 16);
+  const snap = async (name: string) => {
+    rig.app.ticker.update(performance.now());
+    const frame = new Rectangle(0, 0, innerWidth, innerHeight);
+    await dump(`snap-${name}.png`, await rig.app.renderer.extract.base64({ target: rig.app.stage, frame }));
+  };
+  await wait(3000);
+  // Where her grip line is relative to the screen edge, in physical px (0 = flush),
+  // using both the analytic edge and the deformed sprite's actual bounds.
+  const align = async (side: "left" | "right") => {
+    const w = String(await invoke("debug_windows", { to: null }));
+    const [, k, left, right, px] = w.match(/scale ([\d.]+) area left (-?\d+) top -?\d+ right (-?\d+) pet \((-?\d+)/)!.map(Number);
+    const screenEdge = side === "right" ? right : left;
+    const b = rig.bounds();
+    const drawn = side === "right" ? b.right : b.x;
+    return { edge: Math.round(px + rig.edge(side).x * k - screenEdge), drawn: Math.round(px + drawn * k - screenEdge), clip: Math.round(px + (rig.clip?.x ?? NaN) * k - screenEdge) };
+  };
+  for (const side of ["right", "left"] as const) {
+    p.dock(side);
+    await wait(700);
+    log("info", [`dock ${side} rest`, { pose: rig.pose, flip: rig.flip }, await align(side)]);
+    await snap(`dock-${side}`);
+    log("info", [`windows ${side}`, await invoke("debug_windows", { to: null })]);
+    for (const [m] of PEEK_MOTIONS) {
+      p.toRest(); // idle motions don't preempt each other; start each from rest
+      const done = p.peek(m);
+      await wait(600);
+      log("info", [`  ${side} ${m} during`, rig.pose, await align(side)]);
+      await snap(`peek-${side}-${m}`);
+      await done;
+      await wait(m === "doze" ? 200 : 2600);
+      log("info", [`  ${side} ${m} after`, rig.pose, await align(side)]);
+    }
+  }
+  // State machine: floor-only behaviors must be refused while docked (left side now).
+  p.toRest();
+  void p.activity(ACTIVITIES[0]);
+  void (pet as unknown as { wander(): Promise<void> }).wander();
+  await wait(400);
+  log("info", ["docked: activity/wander refused?", { pose: rig.pose, mode: pet.mode, docked: pet.docked }]);
+  // An interrupted tuck must not leave her hidden.
+  p.toRest();
+  void p.peek("tuck");
+  await wait(500);
+  const hidden = await align("left");
+  pet.say("测试：打断缩回去", "happy");
+  await wait(5600);
+  log("info", ["tuck interrupted", { whileTucked: hidden, afterTalking: await align("left"), pose: rig.pose, mode: pet.mode }]);
+  p.undock();
+  p.toRest();
+  await invoke("set_pet_scale", { factor: 0.75 });
+  for (const a of ACTIVITIES) {
+    p.toRest();
+    const done = p.activity(a);
+    await wait(900);
+    await snap(`act-${a.id}`);
+    log("info", [`activity ${a.id}`, { pose: rig.pose }]);
+    p.toRest();
+    await done;
+  }
+  // Gaze: follow a cursor placed up-left of her head, then right.
+  for (const [name, dx, dy] of [["ul", -200, -200], ["r", 200, 0], ["d", 0, 200]] as const) {
+    p.gaze.mode = "follow";
+    (p.gaze as unknown as { until: number }).until = performance.now() + 60000;
+    const h = rig.head();
+    p.gaze.onCursor(h.x + dx, h.y + dy);
+    p.gaze.update(true);
+    await wait(200);
+    log("info", [`gaze follow ${name}`, { gaze: rig.gaze }]);
+    await snap(`gaze-${name}`);
+  }
+  log("info", ["dock done"]);
 }

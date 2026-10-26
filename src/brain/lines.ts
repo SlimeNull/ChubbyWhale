@@ -29,6 +29,17 @@ export const LINES: Bank = {
   hurtCry: ["hurt", ["哇——好痛好痛！", "呜哇——你欺负我！", "痛死了……要抱抱……"]],
   hurtDizzy: ["hurt", ["天、天在转……", "星星……好多星星……", "我是谁……我在哪……"]],
   landProud: ["happy", ["满分落地！", "看到没有，完美着陆！", "嘿嘿，我果然是天才~"]],
+  // Everyday activities (see ACTIVITIES in pet/activities.ts)
+  actEat: ["happy", ["开饭啦~ 今天吃小鱼饭！", "嗯~ 好好吃！", "吃饱了才有力气陪你~"]],
+  actGame: ["cheer", ["这关我一定能过！", "看我的超级连招！", "嘿嘿，又赢啦~"]],
+  actRead: ["neutral", ["这本书好有意思~", "嘘——我在看书哦"]],
+  actTea: ["happy", ["珍珠奶茶最棒了~", "吸溜——好甜！"]],
+  actMusic: ["happy", ["♪ 这首歌好好听~", "啦啦啦~"]],
+  actPhone: ["curious", ["在刷什么呢……啊，是鲸鱼视频！", "嘿嘿，看到一个好好笑的东西"]],
+  actDraw: ["happy", ["我在画一条小鲸鱼~", "画好了给你看！"]],
+  // Hiding at a screen side
+  peekIn: ["shy", ["躲起来啦~", "嘿嘿，你找不到我~", "我在这里偷偷看着你哦"]],
+  pokePeek: ["shy", ["被发现了！", "嘿嘿，躲猫猫~", "嘘——我在偷看呢"]],
   wake: ["shocked", ["唔……我没睡着！", "啊！欢迎回来~ 我一直在等你哦", "嗯……你回来啦？"]],
   yawn: ["sleepy", ["哈啊~ 好困……", "呼啊……想睡觉了……"]],
 

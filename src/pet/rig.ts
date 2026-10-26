@@ -1,6 +1,6 @@
 // Renders Chubby Whale as a deformable mesh so a single illustration can
 // breathe, lean, squash and dangle — a lightweight, Live2D-style puppet.
-import { Application, Assets, Container, MeshPlane, Rectangle, Texture } from "pixi.js";
+import { Application, Assets, Container, Graphics, MeshPlane, Rectangle, Texture } from "pixi.js";
 
 export type PoseName =
   | "idle"
@@ -30,7 +30,23 @@ export type PoseName =
   | "walk_pass"
   | "walk_b"
   | "run_a"
-  | "run_b";
+  | "run_b"
+  | "peek"
+  | "peek_wave"
+  | "peek_smile"
+  | "peek_sleepy"
+  | "eat"
+  | "eat_b"
+  | "game"
+  | "game_b"
+  | "read"
+  | "tea"
+  | "music"
+  | "phone"
+  | "draw";
+
+/** Eye direction on the idle pose (screen directions); "" = straight ahead. */
+export type Gaze = "" | "l" | "r" | "u" | "d" | "ul" | "ur";
 
 interface SpriteMeta {
   w: number;
@@ -68,8 +84,16 @@ export class Rig {
   private meta = new Map<string, SpriteMeta>();
 
   pose: PoseName = "idle";
-  /** Override texture for the idle pose (blink / talk). */
+  /** Override texture for the idle pose (blink / talk); wins over `gaze`. */
   variant: "" | "idle_blink" | "idle_talk" = "";
+  /** Where the eyes look on the idle pose (idle_gaze_* textures). */
+  gaze: Gaze = "";
+  /**
+   * While docked at a screen side: hide everything beyond window-local x
+   * (the screen edge), so the hidden part never shows on a neighbouring monitor.
+   */
+  clip: { side: "left" | "right"; x: number } | null = null;
+  private clipMask = new Graphics();
   /** Display height of the idle pose in CSS px. */
   height = 230;
   flip = false;
@@ -138,7 +162,7 @@ export class Rig {
 
     this.mesh = new MeshPlane({ texture: this.textures.get("idle")!, verticesX: 10, verticesY: 16 });
     this.root.addChild(this.mesh);
-    this.app.stage.addChild(this.root, this.fxLayer);
+    this.app.stage.addChild(this.root, this.fxLayer, this.clipMask);
     this.app.ticker.add((tk) => this.update(tk.deltaMS / 1000));
   }
 
@@ -159,6 +183,18 @@ export class Rig {
 
   stopCycle() {
     this.cycle = null;
+  }
+
+  /**
+   * Window-local x of the sprite's outer edge on `side` for the current pose
+   * (for peek poses: the line her hands grip), and its vertical span.
+   */
+  edge(side: "left" | "right"): { x: number; top: number; bottom: number; width: number } {
+    const m = this.meta.get(this.pose) ?? this.meta.get("idle")!;
+    const s = this.scale;
+    const out = (1 - m.ax) * m.w * s; // peek art: the grip edge is the image's right side
+    const f = this.floor;
+    return { x: side === "right" ? f.x + out : f.x - out, top: f.y - m.h * s, bottom: f.y, width: m.w * s };
   }
 
   get ready() {
@@ -226,7 +262,12 @@ export class Rig {
     this.t += dt;
     let cycleBob = 0;
     let cycleTilt = 0;
-    let texName: string = this.pose === "idle" && this.variant && this.textures.has(this.variant) ? this.variant : this.pose;
+    let texName: string = this.pose;
+    if (this.pose === "idle") {
+      const gazeTex = this.gaze ? `idle_gaze_${this.gaze}` : "";
+      if (this.variant && this.textures.has(this.variant)) texName = this.variant;
+      else if (gazeTex && this.textures.has(gazeTex)) texName = gazeTex;
+    }
     if (this.cycle) {
       const c = this.cycle;
       const ft = (this.t - c.t0) * c.fps;
@@ -272,6 +313,7 @@ export class Rig {
     const hangPivot = 0.3; // hold her by the collar
     const ay = this.hang ? hangPivot : this.flying ? 0.55 : 1;
 
+    const peeking = texName.startsWith("peek");
     const geo = this.mesh.geometry;
     const pos = geo.getBuffer("aPosition");
     const uvs = geo.getBuffer("aUV").data as Float32Array;
@@ -288,10 +330,16 @@ export class Rig {
       } else {
         const up = 1 - v;
         y -= breath * h * 0.014 * up;
-        x *= 1 + breath * 0.01 * up;
-        x += this.lean * h * Math.pow(up, 1.7);
+        if (peeking) {
+          // Hands stay on the screen edge: breathe vertically only, and only the head leans.
+          x += this.lean * h * Math.pow(Math.max(0, up - 0.5) * 2, 1.5);
+        } else {
+          x *= 1 + breath * 0.01 * up;
+          x += this.lean * h * Math.pow(up, 1.7);
+        }
       }
-      out[i] = x * sx;
+      // Peeking: no horizontal squash either, or the hands would leave the screen edge.
+      out[i] = peeking ? x : x * sx;
       out[i + 1] = y * sy;
     }
     pos.update();
@@ -309,6 +357,15 @@ export class Rig {
       const float = this.bob ? Math.sin(this.t * 1.6) * this.bob : 0;
       this.root.position.set(this.floor.x, this.floor.y - this.hop + float - cycleBob);
       this.root.rotation = this.rotation + cycleTilt;
+    }
+
+    if (this.clip) {
+      const { side, x } = this.clip;
+      this.clipMask.clear().rect(side === "right" ? 0 : x, 0, side === "right" ? x : innerWidth - x, innerHeight).fill(0xffffff);
+      this.root.mask = this.clipMask;
+    } else if (this.root.mask) {
+      this.root.mask = null;
+      this.clipMask.clear();
     }
   }
 }

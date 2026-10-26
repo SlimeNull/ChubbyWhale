@@ -1,15 +1,20 @@
+import type { SoundSettings } from "../audio/engine";
 import { ipc } from "../ipc";
 
 export type Chattiness = "quiet" | "normal" | "chatty";
+export type PetSize = "small" | "medium" | "large";
+
+/** Scale of the pet (and its window) for each size. */
+export const SIZE_SCALE: Record<PetSize, number> = { small: 0.75, medium: 1, large: 1.3 };
 
 export interface Settings {
-  /** On-screen size multiplier. */
-  size: number;
+  size: PetSize;
   /** Watch the foreground app / window title and comment on it. */
   activityAware: boolean;
   /** Comment on web pages (needs window titles). */
   commentOnPages: boolean;
   chattiness: Chattiness;
+  sound: SoundSettings;
   llm: {
     enabled: boolean;
     baseUrl: string;
@@ -21,10 +26,11 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  size: 1,
+  size: "medium",
   activityAware: true,
   commentOnPages: true,
   chattiness: "normal",
+  sound: { volume: 0.6, effects: true, voice: true },
   llm: {
     enabled: false,
     baseUrl: "https://api.deepseek.com",
@@ -34,9 +40,22 @@ export const DEFAULT_SETTINGS: Settings = {
   },
 };
 
+/** Older versions stored size as a number (0.7–1.3). */
+function migrateSize(size: unknown): PetSize {
+  if (size === "small" || size === "medium" || size === "large") return size;
+  if (typeof size === "number") return size < 0.88 ? "small" : size > 1.15 ? "large" : "medium";
+  return DEFAULT_SETTINGS.size;
+}
+
 export async function loadSettings(): Promise<Settings> {
   const saved = (await ipc.storeLoad<Partial<Settings>>("settings").catch(() => null)) ?? {};
-  return { ...DEFAULT_SETTINGS, ...saved, llm: { ...DEFAULT_SETTINGS.llm, ...(saved.llm ?? {}) } };
+  return {
+    ...DEFAULT_SETTINGS,
+    ...saved,
+    size: migrateSize(saved.size),
+    sound: { ...DEFAULT_SETTINGS.sound, ...(saved.sound ?? {}) },
+    llm: { ...DEFAULT_SETTINGS.llm, ...(saved.llm ?? {}) },
+  };
 }
 
 export function saveSettings(s: Settings) {

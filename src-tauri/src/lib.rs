@@ -3,6 +3,7 @@ mod llm;
 mod motion;
 mod store;
 
+use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Wry};
@@ -92,6 +93,7 @@ pub fn run() {
             motion::fall,
             motion::glide_by,
             motion::debug_throw,
+            motion::set_pet_scale,
             store::store_load,
             store::store_save,
             store::data_dir,
@@ -107,8 +109,15 @@ pub fn run() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let handle = app.handle();
+            // Line-art whale (art/tray/whale.svg). On macOS it's a template image,
+            // so the system tints it like other menu bar icons.
+            #[cfg(target_os = "macos")]
+            let (tray_icon, template) = (include_bytes!("../icons/tray/tray-template.png").as_slice(), true);
+            #[cfg(not(target_os = "macos"))]
+            let (tray_icon, template) = (include_bytes!("../icons/tray/tray-color.png").as_slice(), false);
             TrayIconBuilder::with_id("main")
-                .icon(app.default_window_icon().cloned().expect("bundled icon"))
+                .icon(Image::from_bytes(tray_icon)?)
+                .icon_as_template(template)
                 .tooltip("大肥鱼 Chubby Whale")
                 .menu(&build_menu(handle)?)
                 .build(app)?;

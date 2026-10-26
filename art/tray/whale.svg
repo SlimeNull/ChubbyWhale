@@ -1,0 +1,13 @@
+<!-- Line-art whale for the tray. `currentColor` is replaced per variant by build-tray.mjs. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+  <!-- body -->
+  <path stroke-width="4.5" d="M7 38 C7 25 19 18 31 20 C41 22 46 29 50 34 C45 41 36 46 24 46 C14 46 7 43 7 38 Z"/>
+  <!-- tail fluke -->
+  <path stroke-width="4.5" d="M50 34 C52 28 55 24 60 22 C60 28 57 31 54 33 C58 33 61 35 62 39 C57 39 53 37 50 34 Z"/>
+  <!-- eye -->
+  <circle cx="17" cy="32" r="2.6" fill="currentColor" stroke="none"/>
+  <!-- belly line -->
+  <path stroke-width="3" d="M11 40 C19 42 30 42 40 39"/>
+  <!-- water spout -->
+  <path stroke-width="3.5" d="M25 16 V9 M25 12 C22 9 19 8 16 8 M25 12 C28 9 31 8 34 8"/>
+</svg>

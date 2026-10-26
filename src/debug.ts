@@ -25,6 +25,7 @@ export function installDebug(rig: Rig, pet: Pet, fx: Fx) {
   log("info", ["debug installed", { dpr: devicePixelRatio, w: innerWidth, h: innerHeight }]);
 
   if (import.meta.env.VITE_PET_DEMO === "throw") return throwTest(log);
+  if (import.meta.env.VITE_PET_DEMO === "features") return featureTest(rig, log);
   if (import.meta.env.VITE_PET_DEMO !== "1") return;
   let frames = 0;
   rig.app.ticker.add(() => frames++);
@@ -103,4 +104,76 @@ function throwTest(log: (level: string, args: unknown[]) => void) {
     }
     log("info", ["throw test done", { worstRoundTripMs: Math.round(worst) }]);
   })();
+}
+
+/** 16-bit mono WAV as a data URL. */
+function wav(buf: AudioBuffer): string {
+  const pcm = buf.getChannelData(0);
+  const bytes = new DataView(new ArrayBuffer(44 + pcm.length * 2));
+  const str = (o: number, s: string) => [...s].forEach((c, i) => bytes.setUint8(o + i, c.charCodeAt(0)));
+  str(0, "RIFF");
+  bytes.setUint32(4, 36 + pcm.length * 2, true);
+  str(8, "WAVEfmt ");
+  bytes.setUint32(16, 16, true);
+  bytes.setUint16(20, 1, true);
+  bytes.setUint16(22, 1, true);
+  bytes.setUint32(24, buf.sampleRate, true);
+  bytes.setUint32(28, buf.sampleRate * 2, true);
+  bytes.setUint16(32, 2, true);
+  bytes.setUint16(34, 16, true);
+  str(36, "data");
+  bytes.setUint32(40, pcm.length * 2, true);
+  pcm.forEach((v, i) => bytes.setInt16(44 + i * 2, Math.max(-1, Math.min(1, v)) * 0x7fff, true));
+  let bin = "";
+  const u8 = new Uint8Array(bytes.buffer);
+  for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode(...u8.subarray(i, i + 0x8000));
+  return `data:audio/wav;base64,${btoa(bin)}`;
+}
+
+/** Sizes, offline audio renders, and every reaction variant. */
+async function featureTest(rig: Rig, log: (level: string, args: unknown[]) => void) {
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const { SIZE_SCALE } = await import("./brain/settings");
+  const { engine } = await import("./audio/engine");
+  const { playSfx, SFX_NAMES } = await import("./audio/sfx");
+  const { playVoice, VOICE_KINDS } = await import("./audio/voice");
+  const tick = setInterval(() => rig.app.ticker.update(performance.now()), 16);
+  await wait(2500);
+
+  for (const [name, k] of Object.entries(SIZE_SCALE)) {
+    await invoke("set_pet_scale", { factor: k });
+    await wait(700);
+    rig.height = 230 * k;
+    log("info", [`size ${name}`, { window: [innerWidth, innerHeight], body: rig.bodyRect().map(Math.round) }]);
+  }
+  await invoke("set_pet_scale", { factor: 1 });
+  rig.height = 230;
+
+  const render = async (name: string, play: () => void, secs = 1.6) => {
+    const ctx = new OfflineAudioContext(1, Math.round(44100 * secs), 44100);
+    engine.attach(ctx);
+    play();
+    const buf = await ctx.startRendering();
+    await dump(`audio-${name}.wav`, wav(buf));
+  };
+  for (const n of SFX_NAMES) await render(`sfx-${n}`, () => playSfx(n, 0.7));
+  for (const v of VOICE_KINDS) await render(`voice-${v}`, () => playVoice(v), 2);
+  log("info", ["audio rendered", { sfx: SFX_NAMES.length, voice: VOICE_KINDS.length }]);
+
+  const snap = async (name: string) => {
+    rig.app.ticker.update(performance.now());
+    const frame = new Rectangle(0, 0, innerWidth, innerHeight);
+    await dump(`snap-${name}.png`, await rig.app.renderer.extract.base64({ target: rig.app.stage, frame }));
+  };
+  const poses: PoseName[] = ["giggle", "pout", "proud", "dragged_happy", "dragged_grumpy", "dragged_limp", "fly_happy", "fly_ball", "hurt_cry", "hurt_dizzy"];
+  for (const p of poses) {
+    rig.hang = p.startsWith("dragged") ? { x: 150, y: 120 } : null;
+    rig.flying = p.startsWith("fly");
+    rig.spin = p === "fly_ball" ? 6 : 0;
+    rig.setPose(p, false);
+    await wait(900);
+    await snap(p);
+  }
+  clearInterval(tick);
+  log("info", ["features done"]);
 }

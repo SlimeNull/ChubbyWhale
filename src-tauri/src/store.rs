@@ -44,16 +44,18 @@ pub fn data_dir(app: AppHandle) -> Result<String, String> {
         .map_err(|e| e.to_string())
 }
 
-/// Dev builds only: write a canvas snapshot / log line into the data dir so
-/// rendering can be checked without screen-capture permission.
+/// Dev builds only: write a canvas snapshot, audio render or log line into the
+/// data dir so output can be checked without screen-capture permission.
 #[tauri::command]
 pub fn debug_dump(app: AppHandle, name: String, data: String) -> Result<(), String> {
-    if !cfg!(debug_assertions) || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.') {
+    if !cfg!(debug_assertions) || !name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.')) {
         return Ok(());
     }
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("debug");
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let bytes = match data.strip_prefix("data:image/png;base64,") {
+    // "data:<mime>;base64,..." is written as binary (PNG snapshots, WAV renders); anything else is appended as a log line.
+    let payload = data.strip_prefix("data:").and_then(|d| d.split_once(";base64,")).map(|(_, b64)| b64);
+    let bytes = match payload {
         Some(b64) => base64_decode(b64)?,
         None => {
             let mut line = data.into_bytes();

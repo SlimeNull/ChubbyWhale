@@ -17,33 +17,38 @@
 ├── index.html                宠物窗口页面（入口 src/main.ts）
 ├── settings.html             设置窗口页面（入口 src/settings/main.ts）
 ├── vite.config.ts            多页面构建：index + settings
-├── package.json              pnpm；脚本 dev / build / tauri
+├── package.json              pnpm；脚本 dev / build / tauri；devDependency @resvg/resvg-js（渲染托盘图标）
 ├── .github/workflows/release.yml   推送 v* 标签后构建 macOS（arm64/x64）和 Windows 安装包，生成 Release 草稿
 ├── .claude/skills/sub2api-imagegen/  生图技能（Images API 脚本），美术流水线用
 ├── dist/                     vite 构建产物（已在 .gitignore 中）
 │
 ├── src-tauri/                Rust 后端
 │   ├── Cargo.toml            依赖：tauri（tray-icon、macos-private-api）、active-win-pos-rs、user-idle、reqwest
-│   ├── tauri.conf.json       窗口 main：300×420、透明、无边框、置顶、不进任务栏、不抢焦点；macOSPrivateApi=true
+│   ├── tauri.conf.json       窗口 main：基准尺寸 300×420（按大小设置缩放），透明、无边框、置顶、不进任务栏、不抢焦点；macOSPrivateApi=true
 │   ├── capabilities/default.json   main 和 settings 窗口的权限：core:default、opener:default
-│   ├── icons/                由 art/icon-source.png 经 `pnpm tauri icon` 生成
+│   ├── icons/                应用图标，由 art/icon-source.png 经 `pnpm tauri icon` 生成
+│   │   └── tray/             托盘图标（由 art/tray/build-tray.mjs 生成）：tray-template.png（macOS 单色模板）、tray-color.png（Windows）
 │   └── src/
 │       ├── main.rs           入口，调用 lib::run
-│       ├── lib.rs            Builder：注册命令、托盘和右键菜单、设置窗口、macOS Accessory 模式、启动 motion 线程
-│       ├── motion.rs         拖拽、抛掷物理、碰撞、平移、点击穿透（独立线程）
+│       ├── lib.rs            Builder：注册命令、托盘（macOS 用模板图标）和右键菜单、设置窗口、macOS Accessory 模式、启动 motion 线程
+│       ├── motion.rs         拖拽、抛掷物理、碰撞、平移、点击穿透（独立线程）；按大小缩放窗口
 │       ├── activity.rs       前台应用名、窗口标题、键鼠空闲秒数；macOS 屏幕录制权限
 │       ├── store.rs          应用数据目录中的 JSON 存储（settings / memory）；dev 专用的 debug_dump
 │       └── llm.rs            OpenAI 兼容的 chat/completions 代理（reqwest + rustls）
 │
 ├── src/                      前端
-│   ├── main.ts               宠物窗口启动：加载设置和记忆 → Rig → Fx → Bubble → Pet → Director；监听菜单和设置事件
+│   ├── main.ts               宠物窗口启动：加载设置和记忆 → 按大小缩放窗口 → 配置音频 → Rig → Fx → Bubble → Pet → Director；监听菜单和设置事件
 │   ├── ipc.ts                所有 Rust 命令的类型化封装和事件 payload 类型（新增命令先改这里）
-│   ├── debug.ts              仅 DEV：错误写入日志，演示模式（VITE_PET_DEMO=1 / throw）
+│   ├── debug.ts              仅 DEV：错误写入日志，演示模式（VITE_PET_DEMO=1 / throw / features）
 │   ├── styles.css            宠物窗口样式（透明背景、对话气泡）
 │   ├── vite-env.d.ts
+│   ├── audio/                声音：全部用 WebAudio 实时合成，没有音频文件
+│   │   ├── engine.ts         AudioContext、音效总线和声音总线、硬拐点限幅器、噪声缓冲；可接入 OfflineAudioContext 做离线渲染
+│   │   ├── sfx.ts            音效：pop（戳）、pickup、whoosh、boing（撞墙）、thud / softland（落地）、dizzy、puff、sparkle
+│   │   └── voice.ts          「角色声音」：共振峰合成的无词音节，按情绪（VoiceKind，16 种）选择短语，音高曲线表达情绪
 │   ├── pet/                  「身体」：渲染和行为
-│   │   ├── rig.ts            MeshPlane 网格变形渲染：呼吸、倾斜、挤压拉伸、跳跃、悬挂摆动、飞行旋转；PoseName 定义
-│   │   ├── pet.ts            行为状态机：待机动作、眨眼、口型、指针（戳 / 拖 / 丢）、motion 事件反应、睡眠、点击区域同步
+│   │   ├── rig.ts            MeshPlane 网格变形渲染：呼吸、倾斜、挤压拉伸、跳跃、悬挂摆动（looseness）、飞行旋转或翻滚（spin）；PoseName 定义；脚的位置随窗口尺寸变化
+│   │   ├── pet.ts            行为状态机：待机动作、眨眼、口型、指针（戳 / 拖 / 丢）、反应变体（REACTIONS）、音效和声音触发、睡眠、点击区域同步
 │   │   ├── fx.ts             Pixi 文字特效：Zzz、♪、✦、💧、?、!、♥、💢、「咚!」、晕眩星星
 │   │   └── bubble.ts         DOM 对话气泡：逐字显示，talking 标志驱动口型
 │   ├── brain/                「大脑」：决定说什么、什么时候说
@@ -52,14 +57,14 @@
 │   │   ├── lines.ts          离线台词库（LINES）和 Voice（避免重复、模板填充）
 │   │   ├── memory.ts         长期记忆：说过的话、态度（opinions）、自我设定（facts）、统计
 │   │   ├── llm.ts            可选 LLM：人设和规则提示词、JSON 输出校验、态度一致性约束
-│   │   └── settings.ts       Settings 类型、默认值、读写、话痨程度对应的发言间隔
+│   │   └── settings.ts       Settings 类型、默认值、读写（兼容旧的数字 size）、大小对应的缩放 SIZE_SCALE、话痨程度对应的发言间隔
 │   └── settings/             设置窗口
-│       ├── main.ts           表单读写、权限按钮、LLM 测试、记忆列表、清空记忆
+│       ├── main.ts           表单读写（大小、声音、陪伴、AI）、音效和声音试听、权限按钮、LLM 测试、记忆列表、清空记忆
 │       └── settings.css
 │
 ├── public/sprites/           运行时立绘（构建产物，由 art/build_sprites.py 生成，不要手改）
 │   ├── manifest.json         { poses: {name: {w,h,ax}}, variants: {...} }，ax 是头部中心的横向比例
-│   ├── <pose>.webp           13 个姿势
+│   ├── <pose>.webp           23 个姿势：13 个基础姿势和 10 个反应变体（giggle、pout、proud、dragged_*、fly_*、hurt_*）
 │   └── idle_blink.webp / idle_talk.webp   idle 的眨眼和说话差分
 │
 └── art/                      美术源文件和流水线（许可 CC BY-NC-SA 4.0，见 art/LICENSE.md）
@@ -68,6 +73,7 @@
     ├── prompts/              每个姿势和差分的生图提示词（00_master、各姿势、blink、talk）
     ├── raw/                  生图原图和 .png.json 生成报告；_v1_hoodie/ 是被否决的初版，已在 .gitignore 中
     ├── ref/                  master.png（清理后的母版）、mask_eyes/mask_mouth（差分蒙版）、upstream/（社区设定图）
+    ├── tray/                 whale.svg（线稿鲸鱼，托盘图标源）、build-tray.mjs（`node art/tray/build-tray.mjs` 生成托盘 PNG）
     └── icon-source.png       应用图标源图（母版头部裁切）
 ```
 
@@ -80,7 +86,7 @@
 | Rust 主线程（tao 事件循环） | 窗口、托盘、菜单；**同步**（非 async）命令也在这里执行 |
 | `motion` 线程（motion.rs） | 空闲时每 33ms 一次，忙碌时每 8ms 一次：读光标和窗口位置 → 推进阶段 → 移动窗口 → 发 `pet-motion` / `pet-cursor` 事件 → 切换点击穿透 |
 | tokio 运行时 | async 命令：motion 相关命令、`llm_chat` |
-| 宠物窗口 webview | Pixi 渲染、Pet 状态机、Director |
+| 宠物窗口 webview | Pixi 渲染、Pet 状态机、Director、音频 |
 | 设置窗口 webview | 按需创建（label 为 `settings`） |
 
 ### motion 阶段
@@ -95,9 +101,15 @@
 ### 前端行为
 
 - `Pet.mode`：`idle | action | drag | fly | sleep`。`act(pose, ms)` 使用递增的 token 实现可取消的定时姿势。
-- 待机动作每 8～18 秒按权重抽一个：look、curious、yawn（深夜权重更高）、happy 哼歌、wander 游动、watch 坐下、bob 漂浮。
+- 待机动作每 8～18 秒按权重抽一个：look、curious、yawn（深夜权重更高）、happy 哼歌（hum 声音）、giggle 偷笑、wander 游动、watch 坐下、bob 漂浮。
 - 眨眼和说话只在 idle 姿势上生效，通过切换差分贴图实现。
-- 落地 `impact > 1100` 时进入 hurt：坐地、晕眩星星、喊疼；`impact > 500` 时轻落地。
+- **反应变体**（`pet.ts` 的 `REACTIONS`）：每种情况有多个反应，每个反应包含姿势、音效 / 声音、台词（带概率）、特效、跳跃或挤压，以及悬挂松紧或翻滚。挑选时不会和上一次相同，并跳过没有贴图的姿势。
+  - `poke`：shy / giggle / shocked / happy / curious；4 秒内戳 4 次以上触发 `pokeSpam`：pout / shocked
+  - `drag`：dragged（慌张）/ dragged_happy（荡秋千，松）/ dragged_grumpy（不服，紧）/ dragged_limp（瘫软，很松）
+  - `fly`：fly / fly_happy / fly_ball（翻滚）
+  - `hurt`（`impact > 1100`）：hurt（加晕眩星星）/ hurt_cry / hurt_dizzy；`land`（`impact > 500`）：proud / happy / cheer；更轻的落地只播放挤压动画和轻落地音效
+- **声音**：撞墙播放 boing（按 impact 调整强度，间隔至少 90ms）；拖起播放 pickup，丢出播放 whoosh，落地播放 thud / softland，戳播放 pop，放下播放 puff。`say()` 按 emotion 播放对应的声音（`EMOTION_VOICE`），同一时间只播一段。AudioContext 在第一次 pointerdown 时解锁。
+- **大小**：`small / medium / large` 对应缩放 0.75 / 1 / 1.3。`set_pet_scale` 缩放窗口，保持脚底中点不动；窗口 resize 后前端重新上报身体框。
 - Director：用户空闲超过 300 秒后入睡，有输入后醒来；网页停留超过 25 秒后对识别到的话题发表评论（同一话题冷却 40 分钟）；各类活动的停留阈值和冷却见 `KIND_RULES`；全局发言间隔见 `REMARK_GAP`（quiet 600s / normal 200s / chatty 75s）。
 - 话题匹配只在 browser / video / game / other 类活动下进行。代码、终端、文档窗口的标题是文件名和项目名，不参与匹配。
 
@@ -118,10 +130,11 @@
 | `drag_begin` / `drag_end` | motion.rs | async。`drag_end` 返回 `click / drop / throw / none` |
 | `set_body` / `set_hit_rects` | motion.rs | async。窗口内逻辑像素 `[l,t,r,b]` |
 | `fall` / `glide_by` | motion.rs | async |
+| `set_pet_scale` | motion.rs | async。窗口缩放到基准尺寸 × factor，保持脚底中点不动 |
 | `debug_throw` | motion.rs | 仅 DEV 生效：以给定速度抛出 |
 | `store_load` / `store_save` | store.rs | 名称白名单：`settings`、`memory` |
 | `data_dir` | store.rs | 应用数据目录 |
-| `debug_dump` | store.rs | 仅 DEV 生效：写入 `debug/` 日志或 PNG |
+| `debug_dump` | store.rs | 仅 DEV 生效：`data:<mime>;base64,` 数据按二进制写入（PNG、WAV），其他内容追加到日志；文件名只允许字母、数字和 `-_.` |
 | `llm_chat` | llm.rs | async。`{baseUrl,apiKey,model,messages,jsonMode,temperature}` |
 | `show_menu` / `open_settings_window` | lib.rs | 右键菜单和设置窗口 |
 
@@ -139,16 +152,17 @@
 
 应用数据目录：macOS 为 `~/Library/Application Support/org.chubbywhale.pet/`，Windows 为 `%APPDATA%\org.chubbywhale.pet\`。
 
-- `settings.json`：见 `Settings`（size、activityAware、commentOnPages、chattiness、llm{enabled,baseUrl,model,apiKey,shareTitles}）。API Key 明文保存。
+- `settings.json`：见 `Settings`（size: small/medium/large、activityAware、commentOnPages、chattiness、sound{volume,effects,voice}、llm{enabled,baseUrl,model,apiKey,shareTitles}）。API Key 明文保存。旧版本中数字形式的 size 会自动迁移。
 - `memory.json`：`MemoryData v1`，包括 firstMet、opinions{id→{label,stance,firstSaid,since,mentions}}、facts（最多 80 条）、said（最多 400 条）、stats{pokes,throws,drags}。只由宠物窗口写入，写入有 400ms 防抖，先写临时文件再 rename 替换。
-- `debug/`：仅开发版生成，包括 `log.txt` 和 `snap-*.png`。
+- `debug/`：仅开发版生成，包括 `log.txt`、`snap-*.png`、`audio-*.wav`。
 
 ## 美术流水线
 
 1. 生图：使用 `.claude/skills/sub2api-imagegen` 技能。母版以 `ref/upstream` 中的设定图为参考生成；各姿势用 `edit` 接口，以 `ref/master.png` 和设定图为参考；眨眼和说话差分用 `ref/mask_*.png` 做局部编辑。
 2. 网关返回的尺寸不一定等于请求的尺寸（例如 1216×1294），`build_sprites.py` 不依赖固定尺寸。差分图尺寸不一致时会按左上角对齐补齐画布。
 3. 运行 `python art/build_sprites.py` 生成 `public/sprites/`。姿势的头部大小不一致时，调整 `POSES[name]["scale"]`（坐姿约 0.8）。
-4. 新增姿势：添加提示词 → 生成 `raw/<name>.png` → 在 `POSES` 中登记 → 加入 `rig.ts` 的 `PoseName` → 按需加入 `pet.ts` 的 `EMOTION_POSE` 或待机动作。
+4. 新增姿势：添加提示词 → 生成 `raw/<name>.png` → 在 `POSES` 中登记 → 加入 `rig.ts` 的 `PoseName` → 按需加入 `pet.ts` 的 `EMOTION_POSE`、`REACTIONS` 或待机动作。
+5. 托盘图标：修改 `art/tray/whale.svg` 后运行 `node art/tray/build-tray.mjs`。macOS 用的是模板图（纯黑加透明，由系统着色）。
 
 ## 不可破坏的约定
 
@@ -156,13 +170,15 @@
 2. 访问 motion 状态的命令必须是 `async`，不能在主线程执行。
 3. 前端在 `pointerup` 里要先 `await` `dragBegin` 的 Promise，再调用 `dragEnd`。命令是异步的，乱序会导致宠物粘在鼠标上。
 4. 所有姿势必须以同一显示比例渲染（`Rig.scale = height / idle.h`），头部大小靠 `build_sprites.py` 的逐姿势 scale 统一。
-5. `public/sprites/` 是构建产物，修改美术要改 `art/` 下的源文件，再重新构建。
+5. `public/sprites/` 和 `src-tauri/icons/tray/` 是构建产物，修改美术要改 `art/` 下的源文件，再重新构建。
+6. 音频只在 `engine.get()` 返回的上下文里创建节点，所有输出接到 `engine.sfxBus` / `engine.voiceBus`，不要直接接 `destination`（音量设置和限幅器会失效）。
 
 ## 开发和调试
 
 - `pnpm tauri dev`：开发运行。`pnpm build`：tsc 检查加 vite 构建。在 `src-tauri/` 下运行 `cargo clippy`。
 - `VITE_PET_DEMO=1 pnpm tauri dev`：依次播放全部姿势，把截图存到 `debug/snap-*.png`。
 - `VITE_PET_DEMO=throw pnpm tauri dev`：抛掷压力测试，结果写入 `debug/log.txt`（6 次 throw 的落地时间，以及后端往返耗时的最大值）。
+- `VITE_PET_DEMO=features pnpm tauri dev`：依次切换三种大小并记录窗口尺寸；把所有音效和声音离线渲染成 `debug/audio-*.wav`；给 10 个反应变体姿势截图。音频可以用 numpy 统计峰值、RMS、有效时长，或画频谱图检查（agent 听不到声音，只能这样客观检查，最终听感要请用户确认）。
 - 显示器休眠或窗口不可见时，webview 会暂停 requestAnimationFrame，演示模式会手动驱动 ticker。
 - 程序卡死时：用 `sample <pid> 2` 查看各线程调用栈。
 - 用 node 26 可以直接运行 `src/brain/topics.ts` 来检查分类规则（它只有 type import）。

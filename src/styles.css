@@ -27,7 +27,7 @@ body {
 .bubble {
   --tail-x: 50%;
   position: absolute;
-  max-width: 240px;
+  max-width: min(240px, calc(100vw - 16px));
   padding: 8px 12px;
   border-radius: 14px;
   background: #ffffff;

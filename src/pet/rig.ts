@@ -15,7 +15,17 @@ export type PoseName =
   | "curious"
   | "shocked"
   | "watch"
-  | "shy";
+  | "shy"
+  | "giggle"
+  | "pout"
+  | "proud"
+  | "dragged_happy"
+  | "dragged_grumpy"
+  | "dragged_limp"
+  | "fly_happy"
+  | "fly_ball"
+  | "hurt_cry"
+  | "hurt_dizzy";
 
 interface SpriteMeta {
   w: number;
@@ -59,8 +69,10 @@ export class Rig {
   height = 230;
   flip = false;
 
-  /** Where the feet stand, window-local CSS px. */
-  readonly floor = { x: 150, y: 412 };
+  /** Where the feet stand, window-local CSS px (the window resizes with the pet size). */
+  get floor() {
+    return { x: window.innerWidth / 2, y: window.innerHeight - 8 };
+  }
   /** Dangling from the cursor (during drag): pivot point, window-local. */
   hang: { x: number; y: number } | null = null;
   /** Free flight: sprite centered on the body center and rotated. */
@@ -74,6 +86,10 @@ export class Rig {
   bob = 0; // px of floating bob amplitude
   swing = 0; // pendulum while hanging
   private swingV = 0;
+  /** How floppy she is while hanging: 1 = normal, >1 limp, <1 stiff. */
+  looseness = 1;
+  /** Continuous spin in flight, rad/s (0 = tilt with velocity instead). */
+  spin = 0;
   private sx = new Spring(1, 1);
   private sy = new Spring(1, 1);
   private t = 0;
@@ -108,6 +124,10 @@ export class Rig {
     this.root.addChild(this.mesh);
     this.app.stage.addChild(this.root, this.fxLayer);
     this.app.ticker.add((tk) => this.update(tk.deltaMS / 1000));
+  }
+
+  get ready() {
+    return !!this.mesh;
   }
 
   has(name: string) {
@@ -174,7 +194,8 @@ export class Rig {
     const sx = this.sx.step(dt);
     const sy = this.sy.step(dt);
     this.lean += (this.leanTarget - this.lean) * Math.min(1, dt * 6);
-    this.rotation += (this.rotationTarget - this.rotation) * Math.min(1, dt * 8);
+    if (this.spin) this.rotation += this.spin * dt;
+    else this.rotation += (this.rotationTarget - this.rotation) * Math.min(1, dt * 8);
 
     // Little hops use simple gravity.
     if (this.hop > 0 || this.hopV > 0) {
@@ -187,7 +208,7 @@ export class Rig {
     }
 
     // Pendulum while hanging from the cursor.
-    this.swingV += (-40 * this.swing - 3.2 * this.swingV) * dt;
+    this.swingV += (-40 * this.swing - (3.2 / this.looseness) * this.swingV) * dt;
     this.swing += this.swingV * dt;
     this.swing = Math.max(-1.2, Math.min(1.2, this.swing));
 
@@ -207,7 +228,7 @@ export class Rig {
       let y = (v - ay) * h;
       if (this.hang) {
         const down = Math.max(0, v - hangPivot) / (1 - hangPivot);
-        x += this.swing * h * 0.22 * down * down;
+        x += this.swing * h * 0.22 * this.looseness * down * down;
         y += h * 0.05 * down;
       } else {
         const up = 1 - v;

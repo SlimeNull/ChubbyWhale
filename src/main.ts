@@ -1,9 +1,10 @@
 import { listen } from "@tauri-apps/api/event";
+import { engine } from "./audio/engine";
 import { Director } from "./brain/director";
 import { Voice } from "./brain/lines";
 import { LlmBrain } from "./brain/llm";
 import { Memory } from "./brain/memory";
-import { loadSettings, type Settings } from "./brain/settings";
+import { loadSettings, SIZE_SCALE, type Settings } from "./brain/settings";
 import { ipc } from "./ipc";
 import { Bubble } from "./pet/bubble";
 import { Fx } from "./pet/fx";
@@ -20,7 +21,15 @@ async function main() {
 
   const stage = document.getElementById("stage")!;
   const rig = new Rig();
-  rig.height = BASE_HEIGHT * settings.size;
+  // Resize the window to the chosen size; the layout follows the window.
+  const applySize = async () => {
+    const k = SIZE_SCALE[settings.size];
+    rig.height = BASE_HEIGHT * k;
+    await ipc.setPetScale(k);
+    if (rig.ready) await ipc.setBody(rig.bodyRect());
+  };
+  await applySize();
+  engine.configure(settings.sound);
   await rig.init(stage);
   const fx = new Fx(rig, rig.fxLayer);
   const bubble = new Bubble(stage);
@@ -38,8 +47,8 @@ async function main() {
   });
   await listen("settings-changed", async () => {
     settings = await loadSettings();
-    rig.height = BASE_HEIGHT * settings.size;
-    await ipc.setBody(rig.bodyRect());
+    engine.configure(settings.sound);
+    await applySize();
   });
   await listen("memory-cleared", () => memory.clear());
 }

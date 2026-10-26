@@ -478,3 +478,22 @@ pub async fn debug_throw(window: WebviewWindow, motion: tauri::State<'_, Motion>
     }
     Ok(())
 }
+
+/// Resize the pet window to `factor` × the base size, keeping the feet (bottom
+/// center) where they are. Base size matches tauri.conf.json.
+#[tauri::command]
+pub async fn set_pet_scale(window: WebviewWindow, factor: f64) -> tauri::Result<()> {
+    const BASE: (f64, f64) = (300.0, 420.0);
+    let k = scale(&window);
+    let pos = window.outer_position()?;
+    let size = window.outer_size()?;
+    let (w, h) = ((BASE.0 * factor * k).round(), (BASE.1 * factor * k).round());
+    if (w - size.width as f64).abs() < 1.0 && (h - size.height as f64).abs() < 1.0 {
+        return Ok(());
+    }
+    let x = pos.x as f64 + (size.width as f64 - w) / 2.0;
+    let y = pos.y as f64 + size.height as f64 - h;
+    window.set_size(tauri::PhysicalSize::new(w as u32, h as u32))?;
+    set_pos(&window, x, y);
+    Ok(())
+}

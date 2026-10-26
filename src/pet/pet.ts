@@ -1,10 +1,13 @@
 // The pet's body: idle behaviors, dragging/throwing reactions, poking, sleep.
 import { listen } from "@tauri-apps/api/event";
+import { engine } from "../audio/engine";
+import { playSfx } from "../audio/sfx";
+import { playVoice, type VoiceKind } from "../audio/voice";
 import { ipc, type MotionEvent, type Rect } from "../ipc";
 import type { Memory } from "../brain/memory";
 import type { Voice } from "../brain/lines";
 import type { Bubble } from "./bubble";
-import type { Fx } from "./fx";
+import type { Fx, FxKind } from "./fx";
 import type { PoseName, Rig } from "./rig";
 
 export type Emotion = "neutral" | "happy" | "cheer" | "curious" | "shocked" | "shy" | "look" | "hurt" | "sleepy" | "watch";
@@ -22,14 +25,85 @@ const EMOTION_POSE: Record<Emotion, PoseName> = {
   watch: "watch",
 };
 
-const EMOTION_FX = {
+const EMOTION_FX: Partial<Record<Emotion, FxKind>> = {
   happy: "note",
   cheer: "sparkle",
   curious: "question",
   shocked: "exclaim",
   shy: "heart",
   hurt: "sweat",
-} as const;
+};
+
+const EMOTION_VOICE: Record<Emotion, VoiceKind> = {
+  neutral: "neutral",
+  happy: "happy",
+  cheer: "cheer",
+  curious: "curious",
+  shocked: "surprised",
+  shy: "shy",
+  look: "curious",
+  hurt: "hurt",
+  sleepy: "sleepy",
+  watch: "neutral",
+};
+
+/** One way of reacting to something; each situation has several, picked at random. */
+interface Reaction {
+  pose: PoseName;
+  voice: VoiceKind;
+  /** Line kind from the line bank. */
+  line?: string;
+  /** Chance of saying the line (default 1). */
+  talk?: number;
+  fx?: FxKind;
+  fxCount?: number;
+  jump?: number;
+  squash?: [number, number];
+  /** While hanging: >1 floppy, <1 stiff. */
+  looseness?: number;
+  /** In flight: tumble instead of tilting with the velocity. */
+  spin?: boolean;
+  /** Stars circling her head. */
+  dizzy?: boolean;
+}
+
+const REACTIONS = {
+  poke: [
+    { pose: "shy", voice: "shy", line: "poke", fx: "heart", squash: [1.12, 0.88] },
+    { pose: "giggle", voice: "giggle", line: "pokeGiggle", fx: "note", fxCount: 2, jump: 8 },
+    { pose: "shocked", voice: "surprised", line: "pokeSurprised", fx: "exclaim", jump: 22 },
+    { pose: "happy", voice: "happy", line: "pokeHappy", fx: "sparkle", jump: 26 },
+    { pose: "curious", voice: "curious", line: "pokeCurious", fx: "question", squash: [0.94, 1.06] },
+  ],
+  pokeSpam: [
+    { pose: "pout", voice: "angry", line: "pokeSpam", fx: "anger", squash: [1.15, 0.85] },
+    { pose: "shocked", voice: "angry", line: "pokeSpam", fx: "anger", jump: 18 },
+  ],
+  drag: [
+    { pose: "dragged", voice: "scared", line: "dragStart", talk: 0.5, fx: "sweat" },
+    { pose: "dragged_happy", voice: "happy", line: "dragHappy", talk: 0.5, fx: "note", looseness: 1.3 },
+    { pose: "dragged_grumpy", voice: "angry", line: "dragGrumpy", talk: 0.5, fx: "anger", looseness: 0.6 },
+    { pose: "dragged_limp", voice: "sigh", line: "dragLimp", talk: 0.4, looseness: 1.8 },
+  ],
+  fly: [
+    { pose: "fly", voice: "scared", line: "throw", talk: 0.5 },
+    { pose: "fly_happy", voice: "fly", line: "flyHappy", talk: 0.5, fx: "sparkle" },
+    { pose: "fly_ball", voice: "scared", line: "flyBall", talk: 0.4, spin: true },
+  ],
+  hurt: [
+    { pose: "hurt", voice: "hurt", line: "hurt", dizzy: true },
+    { pose: "hurt_cry", voice: "cry", line: "hurtCry", fx: "sweat", fxCount: 2 },
+    // The art already has spiral eyes and stars.
+    { pose: "hurt_dizzy", voice: "dizzy", line: "hurtDizzy" },
+  ],
+  land: [
+    { pose: "proud", voice: "cheer", line: "landProud", talk: 0.7, fx: "sparkle" },
+    { pose: "happy", voice: "happy", line: "softLanding", talk: 0.6, fx: "note", jump: 14 },
+    { pose: "cheer", voice: "cheer", line: "softLanding", talk: 0.4, fx: "sparkle" },
+  ],
+} satisfies Record<string, Reaction[]>;
+
+type ReactionKind = keyof typeof REACTIONS;
 
 type Mode = "idle" | "action" | "drag" | "fly" | "sleep";
 
@@ -45,6 +119,9 @@ export class Pet {
   private grab = { x: 150, y: 200 };
   private lastDragVx = 0;
   private lastHitRects = "";
+  private lastReaction: Partial<Record<ReactionKind, number>> = {};
+  private flight: Reaction | null = null;
+  private lastBoing = 0;
   /** Called whenever she says something, so the brain can remember it. */
   onSaid: (text: string, kind: string) => void = () => {};
   /** Called when the user pokes her (the brain may want to chat back). */
@@ -66,6 +143,8 @@ export class Pet {
     setInterval(() => this.syncHitRects(), 80);
     this.bubble.onChange = () => this.placeBubble();
     this.rig.app.ticker.add(() => this.bubble.visible && this.placeBubble());
+    // The window is resized when the pet size changes; the physics body follows.
+    window.addEventListener("resize", () => ipc.setBody(this.rig.bodyRect()));
 
     await ipc.setBody(this.rig.bodyRect());
     await listen<MotionEvent>("pet-motion", (e) => this.onMotion(e.payload));
@@ -84,9 +163,10 @@ export class Pet {
   say(text: string, emotion: Emotion = "neutral", kind = "say", ms?: number) {
     this.bubble.show(text, ms);
     this.onSaid(text, kind);
+    playVoice(EMOTION_VOICE[emotion]);
     if (this.mode === "drag" || this.mode === "fly") return;
     if (this.mode === "sleep") this.wake(false);
-    const fx = EMOTION_FX[emotion as keyof typeof EMOTION_FX];
+    const fx = EMOTION_FX[emotion];
     if (fx) this.fx.emit(fx, fx === "note" || fx === "heart" ? 2 : 1);
     const pose = EMOTION_POSE[emotion];
     const hold = ms ?? Math.min(9000, 2600 + text.length * 160) + text.length * 55;
@@ -115,6 +195,32 @@ export class Pet {
     return true;
   }
 
+  /**
+   * Pick a variant for `kind` (never the same one twice in a row, and only
+   * poses that exist) and play its pose, effects, voice and maybe a line.
+   */
+  private react(kind: ReactionKind, vars: Record<string, string | number> = {}, bubbleMs?: number): Reaction {
+    const options: Reaction[] = REACTIONS[kind];
+    const usable = options.map((r, i) => [r, i] as const).filter(([r]) => this.rig.has(r.pose));
+    const fresh = usable.filter(([, i]) => i !== this.lastReaction[kind]);
+    const pool = fresh.length ? fresh : usable;
+    const [r, i] = pool[Math.floor(Math.random() * pool.length)] ?? [options[0], 0];
+    this.lastReaction[kind] = i;
+
+    this.rig.setPose(r.pose);
+    if (r.squash) this.rig.squash(...r.squash);
+    if (r.jump) this.rig.jump(r.jump);
+    if (r.fx) this.fx.emit(r.fx, r.fxCount ?? 1);
+    if (r.dizzy) this.fx.startDizzy(3.2);
+    playVoice(r.voice);
+    if (r.line && chance(r.talk ?? 1)) {
+      const { text } = this.voice.line(r.line, vars);
+      this.bubble.show(text, bubbleMs);
+      this.onSaid(text, r.line);
+    }
+    return r;
+  }
+
   private toIdle(pop = true) {
     this.token++;
     this.mode = "idle";
@@ -134,6 +240,7 @@ export class Pet {
     this.rig.setPose("sleep");
     this.rig.breathRate = 0.45;
     this.fx.sleeping = true;
+    playVoice("sleepy");
   }
 
   wake(greet = true) {
@@ -187,11 +294,14 @@ export class Pet {
       [sleepy ? 4 : 1.5, () => this.act("yawn", 2400, () => {
         this.rig.breathRate = 0.6;
         if (chance(0.4)) this.speak("yawn");
+        else playVoice("sleepy");
       })],
       [2, () => this.act("happy", 2600, () => {
         this.fx.emit("note", 3);
         this.rig.jump(18);
+        playVoice("hum");
       })],
+      [1, () => this.act("giggle", 2200, () => this.fx.emit("note", 2))],
       [2.5, () => this.wander()],
       [2, () => this.act("watch", rand(9000, 18000))],
       [1, () => this.act("idle", 4000, () => (this.rig.bob = 5))],
@@ -223,14 +333,15 @@ export class Pet {
 
   private bindPointer() {
     const el = this.rig.app.canvas;
+    // Commands are async, so make sure the press is registered before the release.
+    let pressed: Promise<void> = Promise.resolve();
     el.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
+      engine.unlock();
       el.setPointerCapture(e.pointerId);
       this.grab = { x: e.clientX, y: e.clientY };
       pressed = ipc.dragBegin().catch(() => {});
     });
-    // Commands are async, so make sure the press is registered before the release.
-    let pressed: Promise<void> = Promise.resolve();
     el.addEventListener("pointerup", async (e) => {
       if (e.button !== 0) return;
       await pressed;
@@ -249,17 +360,16 @@ export class Pet {
     this.memory.bump("pokes");
     const now = performance.now();
     this.pokes = this.pokes.filter((t) => now - t < 4000).concat(now);
+    playSfx("pop");
     if (this.mode === "sleep") return this.speak("pokeAwake");
     if (this.mode === "drag" || this.mode === "fly") return;
-    if (this.pokes.length >= 4) {
-      this.fx.emit("anger");
-      this.speak("pokeSpam");
-      this.pokes = [];
-    } else {
-      this.rig.squash(1.12, 0.88);
-      this.speak("poke");
-      this.onPoke();
-    }
+    const spam = this.pokes.length >= 4;
+    if (spam) this.pokes = [];
+    const my = ++this.token;
+    this.mode = "action";
+    this.react(spam ? "pokeSpam" : "poke");
+    if (!spam) this.onPoke();
+    sleep(spam ? 2600 : 2000).then(() => my === this.token && this.toIdle());
   }
 
   private onMotion(e: MotionEvent) {
@@ -278,10 +388,11 @@ export class Pet {
           x: Math.max(70, Math.min(window.innerWidth - 70, this.grab.x)),
           y: Math.max(h * 0.3 + 10, Math.min(window.innerHeight - h * 0.72, this.grab.y)),
         };
-        this.rig.setPose("dragged");
         this.rig.squash(0.92, 1.12);
         this.lastDragVx = 0;
-        if (chance(0.45)) this.speak("dragStart");
+        playSfx("pickup");
+        const r = this.react("drag");
+        this.rig.looseness = r.looseness ?? 1;
         break;
       }
       case "dragging": {
@@ -292,13 +403,20 @@ export class Pet {
         break;
       }
       case "flying":
-        this.rig.rotationTarget = Math.max(-0.6, Math.min(0.6, e.vx / 2500));
+        if (this.flight?.spin) this.rig.spin = Math.max(-14, Math.min(14, e.vx / 220)) || 4;
+        else this.rig.rotationTarget = Math.max(-0.6, Math.min(0.6, e.vx / 2500));
         break;
-      case "bump":
+      case "bump": {
         this.fx.pop("bump", e.side);
         if (e.side === "left" || e.side === "right") this.rig.squash(0.8, 1.12);
         else this.rig.squash(1.2, 0.8);
+        const now = performance.now();
+        if (now - this.lastBoing > 90) {
+          this.lastBoing = now;
+          playSfx("boing", e.impact / 2500);
+        }
         break;
+      }
       case "landed":
         this.landed(e.impact);
         break;
@@ -307,44 +425,59 @@ export class Pet {
 
   private dropped() {
     this.rig.hang = null;
+    this.rig.looseness = 1;
     this.toIdle();
     this.rig.squash(1.1, 0.9);
+    playSfx("puff");
     if (chance(0.25)) this.speak("drop");
   }
 
   private thrown() {
     this.rig.hang = null;
+    this.rig.looseness = 1;
     this.rig.flying = true;
     this.mode = "fly";
-    this.rig.setPose("fly");
+    playSfx("whoosh");
     const n = this.memory.bump("throws");
-    if (n > 3 && n % 5 === 0) this.speak("throwAgain", { n });
-    else if (chance(0.6)) this.speak("throw");
+    this.flight = this.react("fly");
+    if (n > 3 && n % 5 === 0) {
+      const { text } = this.voice.line("throwAgain", { n });
+      this.bubble.show(text);
+      this.onSaid(text, "throwAgain");
+    }
   }
 
   private async landed(impact: number) {
     this.rig.flying = false;
     this.rig.hang = null;
+    this.rig.spin = 0;
     this.rig.rotationTarget = 0;
     this.rig.rotation = 0;
+    this.flight = null;
     this.mode = "idle";
     if (impact > 1100) {
       this.rig.squash(1.3, 0.7);
-      this.fx.startDizzy(3.2);
+      playSfx("thud", impact / 3000);
       const my = ++this.token;
       this.mode = "action";
-      this.rig.setPose("hurt");
-      const { text } = this.voice.line("hurt");
-      this.bubble.show(text, 3200);
-      this.onSaid(text, "hurt");
+      const r = this.react("hurt", {}, 3200);
+      if (r.dizzy || r.pose === "hurt_dizzy") playSfx("dizzy");
       await sleep(3800);
       if (my !== this.token) return;
       this.toIdle();
       if (chance(0.5)) this.speak("hurtAfter");
+    } else if (impact > 500) {
+      this.rig.squash(1.18, 0.84);
+      playSfx("softland");
+      const my = ++this.token;
+      this.mode = "action";
+      this.react("land");
+      await sleep(2200);
+      if (my === this.token) this.toIdle();
     } else {
       this.toIdle();
-      this.rig.squash(1.18, 0.84);
-      if (impact > 500 && chance(0.6)) this.speak("softLanding");
+      this.rig.squash(1.12, 0.9);
+      playSfx("softland", 0.3);
     }
   }
 

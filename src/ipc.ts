@@ -35,6 +35,7 @@ export const ipc = {
   setHitRects: (rects: Rect[]) => invoke<void>("set_hit_rects", { rects }),
   fall: () => invoke<void>("fall"),
   glideBy: (dx: number, secs: number) => invoke<number>("glide_by", { dx, secs }),
+  setPetScale: (factor: number) => invoke<void>("set_pet_scale", { factor }),
 
   storeLoad: <T>(name: "settings" | "memory") => invoke<T | null>("store_load", { name }),
   storeSave: (name: "settings" | "memory", value: unknown) => invoke<void>("store_save", { name, value }),

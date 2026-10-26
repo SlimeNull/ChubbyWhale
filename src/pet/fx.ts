@@ -2,7 +2,7 @@
 import { Container, Text, TextStyle } from "pixi.js";
 import type { Rig } from "./rig";
 
-type Kind = "zzz" | "note" | "sparkle" | "sweat" | "question" | "exclaim" | "heart" | "anger" | "bump" | "star";
+export type FxKind = "zzz" | "note" | "sparkle" | "sweat" | "question" | "exclaim" | "heart" | "anger" | "bump" | "star";
 
 interface Particle {
   node: Text;
@@ -11,7 +11,7 @@ interface Particle {
   update(p: Particle, dt: number): void;
 }
 
-const GLYPH: Record<Kind, { text: string; color: string; size: number }> = {
+const GLYPH: Record<FxKind, { text: string; color: string; size: number }> = {
   zzz: { text: "Z", color: "#5b7cff", size: 22 },
   note: { text: "♪", color: "#3c64f0", size: 24 },
   sparkle: { text: "✦", color: "#f5c242", size: 20 },
@@ -24,7 +24,7 @@ const GLYPH: Record<Kind, { text: string; color: string; size: number }> = {
   star: { text: "★", color: "#ffcc33", size: 18 },
 };
 
-function style(kind: Kind) {
+function style(kind: FxKind) {
   const g = GLYPH[kind];
   return new TextStyle({
     fontFamily: "'PingFang SC','Microsoft YaHei',system-ui,sans-serif",
@@ -48,7 +48,7 @@ export class Fx {
     rig.app.ticker.add((tk) => this.update(tk.deltaMS / 1000));
   }
 
-  private spawn(kind: Kind, x: number, y: number, life: number, update: Particle["update"]) {
+  private spawn(kind: FxKind, x: number, y: number, life: number, update: Particle["update"]) {
     const node = new Text({ text: GLYPH[kind].text, style: style(kind), anchor: 0.5 });
     node.position.set(x, y);
     this.layer.addChild(node);
@@ -57,7 +57,7 @@ export class Fx {
   }
 
   /** Floating glyphs that rise and fade near the head. */
-  emit(kind: Kind, count = 1) {
+  emit(kind: FxKind, count = 1) {
     const h = this.rig.head();
     for (let i = 0; i < count; i++) {
       const side = Math.random() < 0.5 ? -1 : 1;
@@ -77,7 +77,7 @@ export class Fx {
   }
 
   /** A word that pops at a screen side, e.g. when hitting a wall. */
-  pop(kind: Kind, side: string) {
+  pop(kind: FxKind, side: string) {
     const b = this.rig.bounds();
     const x = side === "left" ? b.x + 10 : side === "right" ? b.right - 10 : b.x + b.width / 2;
     const y = side === "top" ? b.y + 10 : side === "bottom" ? b.bottom - 20 : b.y + b.height * 0.35;

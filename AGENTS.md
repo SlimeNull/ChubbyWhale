@@ -27,6 +27,7 @@
 
 - `src-tauri/src/motion.rs`：持有 `State` 锁时**绝不能**调用任何窗口 API，否则会和主线程死锁（实际发生过：丢出去时卡死）。motion 相关的命令必须是 `async`。
 - 前端 `pointerup` 必须先等 `dragBegin` 完成，再调用 `dragEnd`。
+- 交给 PixiJS 加载的资源地址必须是绝对 URL，否则 macOS 正式版（`tauri://localhost`）贴图全部加载失败。
 - `public/sprites/` 是构建产物。美术改 `art/` 下的源文件，然后运行 `python art/build_sprites.py`。
 - 美术素材许可为 CC BY-NC-SA 4.0（禁止商用），代码许可为 GPL-3.0-or-later。不要引入和这两个许可冲突的依赖或素材（例如闭源的 Live2D Cubism Core）。
 
@@ -48,3 +49,4 @@ agent 直接看图来判断「眼神、表情、姿势自不自然」并不可�
 - 涉及拖拽、抛掷或窗口移动的改动：运行 `VITE_PET_DEMO=throw pnpm tauri dev`，确认 `debug/log.txt` 里 6 次都落地，并且没有 `STALL`
 - 测试实例要用 1430 端口启动，结束时只结束自己启动的进程，不要动用户正在跑的实例（做法见 STRUCTURE.md「开发和调试」）
 - 涉及渲染或姿势的改动：运行 `VITE_PET_DEMO=1 pnpm tauri dev`，查看 `debug/snap-*.png`
+- 涉及资源加载（贴图、声音、manifest 路径）、Vite 构建配置或发版之前：打包检查，开发版不会暴露这类问题（曾经出现过正式版窗口全空，做法见 STRUCTURE.md「检查正式包」）

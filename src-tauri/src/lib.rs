@@ -124,6 +124,7 @@ pub fn run() {
             store::store_load,
             store::store_save,
             store::data_dir,
+            store::log_error,
             store::debug_dump,
             llm::llm_chat,
             show_menu,

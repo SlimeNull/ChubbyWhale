@@ -36,8 +36,10 @@ export const ipc = {
   /** Where the speech bubble should point: [head x, head top, head half-width], or null when hidden. */
   setBubble: (anchor: [number, number, number] | null) => invoke<void>("set_bubble", { anchor }),
   fall: () => invoke<void>("fall"),
-  /** Move by `dx` at `speed` px/s; resolves to the actual distance once the move has started. */
-  /** `span`: window-local [left, right] of what is drawn while moving, kept on screen. */
+  /**
+   * Move by `dx` at `speed` px/s; resolves to the actual distance once the move has started.
+   * `span`: window-local [left, right] of what is drawn while moving, kept on screen.
+   */
   glideBy: (dx: number, speed: number, linear = false, span?: [number, number]) =>
     invoke<number>("glide_by", { dx, speed, linear, span: span ?? null }),
   setPetScale: (factor: number) => invoke<void>("set_pet_scale", { factor }),
@@ -47,6 +49,8 @@ export const ipc = {
   storeLoad: <T>(name: "settings" | "memory") => invoke<T | null>("store_load", { name }),
   storeSave: (name: "settings" | "memory", value: unknown) => invoke<void>("store_save", { name, value }),
   dataDir: () => invoke<string>("data_dir"),
+  /** Append a line to frontend.log in the app log dir. */
+  logError: (line: string) => invoke<void>("log_error", { line }).catch(() => {}),
 
   llmChat: (req: {
     baseUrl: string;

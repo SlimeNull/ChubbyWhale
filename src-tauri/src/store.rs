@@ -36,6 +36,21 @@ pub fn store_save(app: AppHandle, name: String, value: Value) -> Result<(), Stri
     fs::rename(&tmp, &p).map_err(|e| e.to_string())
 }
 
+/// Append a frontend error to `frontend.log` in the app log dir (release builds
+/// too: otherwise a failed startup is just an empty window). Kept under ~1 MB.
+#[tauri::command]
+pub fn log_error(app: AppHandle, line: String) -> Result<(), String> {
+    use std::io::Write;
+    let dir = app.path().app_log_dir().map_err(|e| e.to_string())?;
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let p = dir.join("frontend.log");
+    if fs::metadata(&p).is_ok_and(|m| m.len() > 1 << 20) {
+        let _ = fs::rename(&p, dir.join("frontend.old.log"));
+    }
+    let mut f = fs::OpenOptions::new().create(true).append(true).open(&p).map_err(|e| e.to_string())?;
+    writeln!(f, "{line}").map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn data_dir(app: AppHandle) -> Result<String, String> {
     app.path()

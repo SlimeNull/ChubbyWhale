@@ -163,6 +163,7 @@
 | `debug_probe_top` / `debug_windows` | motion.rs | 仅 DEV 生效：检查窗口能否越过菜单栏；移动宠物窗口并返回宠物窗口、气泡窗口和工作区（左、上、右）的坐标 |
 | `store_load` / `store_save` | store.rs | 名称白名单：`settings`、`memory` |
 | `data_dir` | store.rs | 应用数据目录 |
+| `log_error` | store.rs | `(line)` 追加一行到应用日志目录的 `frontend.log`（正式版也写；超过 1MB 时把旧文件改名为 `frontend.old.log`）。主窗口的未捕获错误、未处理的 Promise 拒绝和启动失败都会写进来 |
 | `debug_dump` | store.rs | 仅 DEV 生效：`data:<mime>;base64,` 数据按二进制写入（PNG、WAV），其他内容追加到日志；文件名只允许字母、数字和 `-_.` |
 | `llm_chat` | llm.rs | async。`{baseUrl,apiKey,model,messages,jsonMode,temperature}` |
 | `show_menu` / `open_settings_window` | lib.rs | 右键菜单和设置窗口 |
@@ -189,6 +190,8 @@
 - `memory.json`：`MemoryData v1`，包括 firstMet、opinions{id→{label,stance,firstSaid,since,mentions}}、facts（最多 80 条）、said（最多 400 条）、stats{pokes,throws,drags}。只由宠物窗口写入，写入有 400ms 防抖，先写临时文件再 rename 替换。
 - `debug/`：仅开发版生成，包括 `log.txt`、`snap-*.png`、`audio-*.wav`。
 
+日志目录：macOS 为 `~/Library/Logs/org.chubbywhale.pet/`，Windows 为 `%LOCALAPPDATA%\org.chubbywhale.pet\logs\`。`frontend.log` 记录前端错误（见 `log_error`）。用户反馈「打开后没有桌宠」这类问题时，先看这个文件。
+
 ## 美术流水线
 
 1. 生图：使用 `.claude/skills/sub2api-imagegen` 技能。母版以 `ref/upstream` 中的设定图为参考生成；各姿势用 `edit` 接口，以 `ref/master.png` 和设定图为参考；眨眼和说话差分用 `ref/mask_*.png` 做局部编辑。
@@ -212,6 +215,7 @@
 6. 音频只在 `engine.get()` 返回的上下文里创建节点，所有输出接到 `engine.sfxBus` / `engine.voiceBus`，不要直接接 `destination`（音量设置和限幅器会失效）。
 7. 宠物窗口只放宠物本身。气泡、提示之类的 UI 放在独立窗口里，不要再给宠物窗口加大块透明区域，否则她又会到不了屏幕边缘。
 8. 行为必须通过 `begin()` 启动并声明允许的位置，回到休息必须走 `toRest()`。不要直接改 `_mode` 或 `place`，否则状态机的保证就失效了（例如贴边时开始吃饭，或者缩回去后出不来）。
+9. 交给 PixiJS `Assets.load` 的资源地址必须是绝对 URL（`new URL(path, location.href).href`）。正式版在 macOS 上页面来自 `tauri://localhost`，PixiJS 会把 `/sprites/x.webp` 错误解析成 `tauri://sprites/x.webp`，贴图全部加载失败，窗口是空的。开发版是 http 地址，不会暴露这个问题。普通的 `fetch("/…")` 不受影响。
 
 ## 开发和调试
 
@@ -229,4 +233,5 @@
 - 显示器休眠或窗口不可见时，webview 会暂停 requestAnimationFrame，演示模式会手动驱动 ticker。
 - agent 跑测试时，用户可能正开着自己的 `pnpm tauri dev`（占用 1420 端口）。测试实例要换端口：`pnpm tauri dev --config '{"build":{"devUrl":"http://localhost:1430","beforeDevCommand":"pnpm dev --port 1430 --strictPort"}}'`。结束时只杀自己启动的进程树，不要 `pkill -f "tauri dev"`，也不要按 chubby-whale 进程名去 kill。
 - 程序卡死时：用 `sample <pid> 2` 查看各线程调用栈。
+- **检查正式包**：开发版从 http 加载页面，正式版从 `tauri://localhost`（macOS）加载，资源路径的问题只有打包后才会出现。用 `pnpm tauri build --debug --bundles app` 打包（不做 LTO，比正式构建快很多，页面加载方式和正式版相同），直接运行 `src-tauri/target/debug/bundle/macos/Chubby Whale.app/Contents/MacOS/chubby-whale`，然后看 `frontend.log`。要确认画面，可以用 `CGWindowListCopyWindowInfo` 找到「大肥鱼」窗口的编号，再 `screencapture -x -o -l<编号>` 截图。
 - 用 node 26 可以直接运行 `src/brain/topics.ts` 来检查分类规则（它只有 type import）。

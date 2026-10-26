@@ -152,7 +152,9 @@ export class Rig {
     await Promise.all(
       Object.entries(entries).map(async ([name, meta]) => {
         const tex = await Assets.load<Texture>({
-          src: `/sprites/${name}.webp`,
+          // Absolute URL: Pixi resolves "/sprites/…" against tauri://localhost (release
+          // builds) as tauri://sprites/…, which doesn't exist.
+          src: new URL(`/sprites/${name}.webp`, location.href).href,
           data: { autoGenerateMipmaps: true, scaleMode: "linear" },
         });
         this.textures.set(name, tex);

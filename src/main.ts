@@ -15,6 +15,12 @@ import "./styles.css";
 
 const BASE_HEIGHT = 230;
 
+// Keep a log of frontend errors in release builds too (see store::log_error).
+const report = (what: string, e: unknown) =>
+  ipc.logError(`${new Date().toISOString()} ${what} ${e instanceof Error ? `${e.message}\n${e.stack ?? ""}` : String(e)}`);
+window.addEventListener("error", (e) => report("uncaught", e.error ?? e.message));
+window.addEventListener("unhandledrejection", (e) => report("unhandled", e.reason));
+
 async function main() {
   let settings: Settings = await loadSettings();
   const memory = new Memory();
@@ -55,4 +61,7 @@ async function main() {
   await listen("memory-cleared", () => memory.clear());
 }
 
-main().catch((e) => console.error(e));
+main().catch((e) => {
+  console.error(e);
+  report("startup failed", e);
+});

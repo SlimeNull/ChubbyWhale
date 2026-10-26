@@ -34,7 +34,8 @@ export const ipc = {
   setBody: (body: Rect) => invoke<void>("set_body", { body }),
   setHitRects: (rects: Rect[]) => invoke<void>("set_hit_rects", { rects }),
   fall: () => invoke<void>("fall"),
-  glideBy: (dx: number, secs: number) => invoke<number>("glide_by", { dx, secs }),
+  /** Move by `dx` at `speed` px/s; resolves to the actual distance once the move has started. */
+  glideBy: (dx: number, speed: number, linear = false) => invoke<number>("glide_by", { dx, speed, linear }),
   setPetScale: (factor: number) => invoke<void>("set_pet_scale", { factor }),
 
   storeLoad: <T>(name: "settings" | "memory") => invoke<T | null>("store_load", { name }),

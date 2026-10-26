@@ -12,6 +12,8 @@ export class Engine {
   private ctx: BaseAudioContext | null = null;
   private master!: GainNode;
   sfxBus!: GainNode;
+  /** Reverb send for effects; its return goes through sfxBus. */
+  sfxReverb!: ConvolverNode;
   voiceBus!: GainNode;
   private noiseBuf!: AudioBuffer;
   settings: SoundSettings = { volume: 0.6, effects: true, voice: true };
@@ -40,6 +42,18 @@ export class Engine {
     this.voiceBus = ctx.createGain();
     this.sfxBus.connect(this.master);
     this.voiceBus.connect(this.master);
+    // Small, bright room: decaying noise as the impulse response.
+    this.sfxReverb = ctx.createConvolver();
+    const len = Math.round(ctx.sampleRate * 0.7);
+    const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    }
+    this.sfxReverb.buffer = ir;
+    const wet = ctx.createGain();
+    wet.gain.value = 0.35;
+    this.sfxReverb.connect(wet).connect(this.sfxBus);
     this.noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = this.noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;

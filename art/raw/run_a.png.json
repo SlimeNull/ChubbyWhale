@@ -1,0 +1,66 @@
+{
+  "timestamp_utc": "2026-10-26T12:27:01.072844+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2",
+      "prompt": "图1是原创 Q 版角色\"大肥鱼\"（社区鲸鱼娘）的正面立绘母版，图2是她的三视图设定图（提供侧面、背面和细节参考，不要求照搬其构图）。创建一张新构图：画同一个角色，角色设计必须与图1完全一致（深海蓝渐变到浅青蓝的浓密长卷发、头顶弧形呆毛、白色蕾丝女仆发箍及两侧亮蓝色蝴蝶结、头两侧深海蓝鲸鱼鳍状耳朵带白色褶边、深蓝女仆裙与白色荷叶边围裙上的小蓝鲸图案、深蓝领结与蓝宝石、身后厚实的深蓝色鲸尾、白色花边短袜、深蓝玛丽珍鞋），画风、线条、赛璐璐上色方式和配色都与图1一致，约三头身的 Q 版比例。\n姿势与表情：侧身朝向画面左侧小跑（3/4 侧面，脸朝画面左侧）：身体前倾，一条腿高高抬起向前，另一条腿向后蹬地，双臂弯曲用力前后摆动，表情元气满满，张嘴笑，长发和鲸尾向后飘起，裙摆被风吹起。\n只画一个角色，完整全身入镜，人物居中，人物整体尺寸比例与图1接近（头部大小与图1相同），真实透明背景，干净的主体边缘，无地面、无投影、无文字、无水印、无多视图。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/ref/master.png",
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/ref/upstream/dafeiyu-chibi-character-sheet.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 46.443,
+  "usage": {
+    "input_tokens": 3391,
+    "input_tokens_details": {
+      "image_tokens": 2972,
+      "text_tokens": 419
+    },
+    "output_tokens": 1930,
+    "output_tokens_details": {
+      "image_tokens": 1930,
+      "text_tokens": 0
+    },
+    "total_tokens": 5321
+  },
+  "response_metadata": {
+    "created": 1793017618,
+    "size": "1216x1294",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/raw/run_a.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1216,
+        1294
+      ],
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 682471,
+      "nonopaque_pixels": 1572917,
+      "fully_transparent_fraction": 0.433727,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2",
+      "reported_size": "1216x1294",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求尺寸 1024x1536，实际尺寸 1216x1294。",
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

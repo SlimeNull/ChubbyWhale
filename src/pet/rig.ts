@@ -25,7 +25,12 @@ export type PoseName =
   | "fly_happy"
   | "fly_ball"
   | "hurt_cry"
-  | "hurt_dizzy";
+  | "hurt_dizzy"
+  | "walk_a"
+  | "walk_pass"
+  | "walk_b"
+  | "run_a"
+  | "run_b";
 
 interface SpriteMeta {
   w: number;
@@ -90,6 +95,8 @@ export class Rig {
   looseness = 1;
   /** Continuous spin in flight, rad/s (0 = tilt with velocity instead). */
   spin = 0;
+  /** Frame-by-frame animation (walk / run cycles), overriding `pose` while set. */
+  private cycle: { frames: PoseName[]; fps: number; stepsPerFrame: number; bob: number; t0: number } | null = null;
   private sx = new Spring(1, 1);
   private sy = new Spring(1, 1);
   private t = 0;
@@ -124,6 +131,19 @@ export class Rig {
     this.root.addChild(this.mesh);
     this.app.stage.addChild(this.root, this.fxLayer);
     this.app.ticker.add((tk) => this.update(tk.deltaMS / 1000));
+  }
+
+  /**
+   * Loop `frames` at `fps`. `stepsPerFrame` is how many footsteps one frame
+   * covers; each step gets a little bounce of `bob` px and a side-to-side waddle.
+   */
+  playCycle(frames: PoseName[], fps: number, { stepsPerFrame = 0.5, bob = 4 } = {}) {
+    this.cycle = { frames: frames.filter((f) => this.textures.has(f)), fps, stepsPerFrame, bob, t0: this.t };
+    if (!this.cycle.frames.length) this.cycle = null;
+  }
+
+  stopCycle() {
+    this.cycle = null;
   }
 
   get ready() {
@@ -179,14 +199,29 @@ export class Rig {
   }
 
   private anchorX() {
-    const ax = this.meta.get(this.pose)?.ax ?? 0.5;
+    const ax = this.meta.get(this.shown)?.ax ?? 0.5;
     return this.flip ? 1 - ax : ax;
   }
+
+  /** Texture currently on screen (cycle frame, blink/talk variant, or pose). */
+  private shown = "idle";
 
   private update(dt: number) {
     dt = Math.min(dt, 0.05);
     this.t += dt;
-    const texName = this.pose === "idle" && this.variant && this.textures.has(this.variant) ? this.variant : this.pose;
+    let cycleBob = 0;
+    let cycleTilt = 0;
+    let texName: string = this.pose === "idle" && this.variant && this.textures.has(this.variant) ? this.variant : this.pose;
+    if (this.cycle) {
+      const c = this.cycle;
+      const ft = (this.t - c.t0) * c.fps;
+      texName = c.frames[Math.floor(ft) % c.frames.length];
+      // One bounce per step: up mid-stride, down when the foot lands.
+      const step = ft * c.stepsPerFrame * Math.PI;
+      cycleBob = Math.abs(Math.sin(step)) * c.bob;
+      cycleTilt = Math.sin(step) * 0.035;
+    }
+    this.shown = texName;
     const tex = this.textures.get(texName)!;
     if (this.mesh.texture !== tex) this.mesh.texture = tex;
     const meta = this.meta.get(texName)!;
@@ -252,8 +287,8 @@ export class Rig {
       this.root.rotation = this.rotation;
     } else {
       const float = this.bob ? Math.sin(this.t * 1.6) * this.bob : 0;
-      this.root.position.set(this.floor.x, this.floor.y - this.hop + float);
-      this.root.rotation = this.rotation;
+      this.root.position.set(this.floor.x, this.floor.y - this.hop + float - cycleBob);
+      this.root.rotation = this.rotation + cycleTilt;
     }
   }
 }

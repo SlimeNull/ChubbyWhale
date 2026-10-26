@@ -43,11 +43,11 @@
 │   ├── styles.css            宠物窗口样式（透明背景、对话气泡）
 │   ├── vite-env.d.ts
 │   ├── audio/                声音：全部用 WebAudio 实时合成，没有音频文件
-│   │   ├── engine.ts         AudioContext、音效总线和声音总线、硬拐点限幅器、噪声缓冲；可接入 OfflineAudioContext 做离线渲染
-│   │   ├── sfx.ts            音效：pop（戳）、pickup、whoosh、boing（撞墙）、thud / softland（落地）、dizzy、puff、sparkle
-│   │   └── voice.ts          「角色声音」：共振峰合成的无词音节，按情绪（VoiceKind，16 种）选择短语，音高曲线表达情绪
+│   │   ├── engine.ts         AudioContext、音效总线（带混响发送 sfxReverb）和声音总线、硬拐点限幅器、噪声缓冲；可接入 OfflineAudioContext 做离线渲染
+│   │   ├── sfx.ts            萌系音效（五声音阶铃音、八音盒、滑哨、小鸡啾啾、少量混响）：pop、pickup、whoosh、boing、thud、softland、dizzy、puff、sparkle、step（脚步）
+│   │   └── voice.ts          「角色声音」（16 种 VoiceKind）：优先播放 public/voice/ 中的录音片段；某种情绪没有片段时，退回共振峰合成的无词音节
 │   ├── pet/                  「身体」：渲染和行为
-│   │   ├── rig.ts            MeshPlane 网格变形渲染：呼吸、倾斜、挤压拉伸、跳跃、悬挂摆动（looseness）、飞行旋转或翻滚（spin）；PoseName 定义；脚的位置随窗口尺寸变化
+│   │   ├── rig.ts            MeshPlane 网格变形渲染：呼吸、倾斜、挤压拉伸、跳跃、悬挂摆动（looseness）、飞行旋转或翻滚（spin）、逐帧循环（playCycle：走路和跑步，带步伐起伏和左右摇摆）；PoseName 定义；脚的位置随窗口尺寸变化
 │   │   ├── pet.ts            行为状态机：待机动作、眨眼、口型、指针（戳 / 拖 / 丢）、反应变体（REACTIONS）、音效和声音触发、睡眠、点击区域同步
 │   │   ├── fx.ts             Pixi 文字特效：Zzz、♪、✦、💧、?、!、♥、💢、「咚!」、晕眩星星
 │   │   └── bubble.ts         DOM 对话气泡：逐字显示，talking 标志驱动口型
@@ -64,16 +64,19 @@
 │
 ├── public/sprites/           运行时立绘（构建产物，由 art/build_sprites.py 生成，不要手改）
 │   ├── manifest.json         { poses: {name: {w,h,ax}}, variants: {...} }，ax 是头部中心的横向比例
-│   ├── <pose>.webp           23 个姿势：13 个基础姿势和 10 个反应变体（giggle、pout、proud、dragged_*、fly_*、hurt_*）
+│   ├── <pose>.webp           28 个姿势：13 个基础姿势、10 个反应变体（giggle、pout、proud、dragged_*、fly_*、hurt_*）、5 帧移动循环（walk_a / walk_pass / walk_b、run_a / run_b，面朝左）
 │   └── idle_blink.webp / idle_talk.webp   idle 的眨眼和说话差分
+│
+├── public/voice/             （可选）角色声音片段 <emotion>-<n>.mp3 和 manifest.json，由 art/voice/build_voice.py 生成；不存在时使用合成声音
 │
 └── art/                      美术源文件和流水线（许可 CC BY-NC-SA 4.0，见 art/LICENSE.md）
     ├── build_sprites.py      raw → public/sprites：alpha 清理、裁切、缩放（SCALE 和逐姿势 scale）、差分合成、算 ax、输出 webp
-    ├── requirements.txt      Pillow
+    ├── requirements.txt      Pillow、requests
     ├── prompts/              每个姿势和差分的生图提示词（00_master、各姿势、blink、talk）
     ├── raw/                  生图原图和 .png.json 生成报告；_v1_hoodie/ 是被否决的初版，已在 .gitignore 中
-    ├── ref/                  master.png（清理后的母版）、mask_eyes/mask_mouth（差分蒙版）、upstream/（社区设定图）
+    ├── ref/                  master.png（清理后的母版）、mask_eyes/mask_mouth（差分蒙版）、walk_a/run_a 与 mask_*_legs（生成走跑中间帧用）、upstream/（社区设定图）
     ├── tray/                 whale.svg（线稿鲸鱼，托盘图标源）、build-tray.mjs（`node art/tray/build-tray.mjs` 生成托盘 PNG）
+    ├── voice/                角色声音：raw/（原始录音 <emotion>-<n>.wav 等）、build_voice.py（裁剪静音、响度标准化、淡入淡出、可选保留共振峰的升调、编码 mp3）、generate.py（用 OpenAI 兼容的 TTS 接口生成语气音）
     └── icon-source.png       应用图标源图（母版头部裁切）
 ```
 
@@ -95,20 +98,21 @@
 
 - `Flying`：重力 2600 px/s²。撞左、右、上边缘时反弹（系数 0.55）；落地时反弹（0.32）后受摩擦减速。停稳或飞满 8 秒后发出 `landed` 事件，`impact` 取整个飞行过程中的最大撞击速度。工作区（屏幕可用区域）在起飞时查询一次，存入阶段数据。
 - 松手时速度大于 700 逻辑 px/s 算作「丢出去」，否则原地放下。速度上限 6000。
-- `Gliding`：用于 `glide_by` 待机游动和放下后回到屏内，使用 smoothstep 插值。
+- `Gliding`：用于走路 / 跑步（`linear`，匀速）和放下后回到屏内（smoothstep）。`glide_by` 按速度计算时长，时长基于被屏幕边缘截断后的实际距离，所以步频和移动速度始终一致。
 - 点击穿透：只有当光标位于前端上报的 hit rects（身体框、气泡框）内，或处于按下 / 拖拽状态时，窗口才接收鼠标。
 
 ### 前端行为
 
 - `Pet.mode`：`idle | action | drag | fly | sleep`。`act(pose, ms)` 使用递增的 token 实现可取消的定时姿势。
-- 待机动作每 8～18 秒按权重抽一个：look、curious、yawn（深夜权重更高）、happy 哼歌（hum 声音）、giggle 偷笑、wander 游动、watch 坐下、bob 漂浮。
+- 待机动作每 8～18 秒按权重抽一个：look、curious、yawn（深夜权重更高）、happy 哼歌（hum 声音）、giggle 偷笑、wander 移动、watch 坐下、bob 漂浮。
+- **wander 移动**：70% 走路（walk_a → walk_pass → walk_b → walk_pass，6fps，每秒 3 步，55 px/s），30% 小跑（run_a ↔ run_b，6fps，每秒 6 步，150 px/s）。速度和距离都乘以大小系数；每一步播放 step 音效。移动图朝左，向右走时水平翻转。被屏幕边缘挡住时改为朝那个方向张望。被拎起、睡觉或其他动作打断时，`stopWalking()` 会停掉帧循环和脚步声。
 - 眨眼和说话只在 idle 姿势上生效，通过切换差分贴图实现。
 - **反应变体**（`pet.ts` 的 `REACTIONS`）：每种情况有多个反应，每个反应包含姿势、音效 / 声音、台词（带概率）、特效、跳跃或挤压，以及悬挂松紧或翻滚。挑选时不会和上一次相同，并跳过没有贴图的姿势。
   - `poke`：shy / giggle / shocked / happy / curious；4 秒内戳 4 次以上触发 `pokeSpam`：pout / shocked
   - `drag`：dragged（慌张）/ dragged_happy（荡秋千，松）/ dragged_grumpy（不服，紧）/ dragged_limp（瘫软，很松）
   - `fly`：fly / fly_happy / fly_ball（翻滚）
   - `hurt`（`impact > 1100`）：hurt（加晕眩星星）/ hurt_cry / hurt_dizzy；`land`（`impact > 500`）：proud / happy / cheer；更轻的落地只播放挤压动画和轻落地音效
-- **声音**：撞墙播放 boing（按 impact 调整强度，间隔至少 90ms）；拖起播放 pickup，丢出播放 whoosh，落地播放 thud / softland，戳播放 pop，放下播放 puff。`say()` 按 emotion 播放对应的声音（`EMOTION_VOICE`），同一时间只播一段。AudioContext 在第一次 pointerdown 时解锁。
+- **声音**：撞墙播放 boing（按 impact 调整强度，间隔至少 90ms）；拖起播放 pickup，丢出播放 whoosh，落地播放 thud / softland，戳播放 pop，放下播放 puff，走路播放 step。`say()` 按 emotion 播放对应的声音（`EMOTION_VOICE`），同一时间只播一段。AudioContext 在第一次 pointerdown 时解锁。
 - **大小**：`small / medium / large` 对应缩放 0.75 / 1 / 1.3。`set_pet_scale` 缩放窗口，保持脚底中点不动；窗口 resize 后前端重新上报身体框。
 - Director：用户空闲超过 300 秒后入睡，有输入后醒来；网页停留超过 25 秒后对识别到的话题发表评论（同一话题冷却 40 分钟）；各类活动的停留阈值和冷却见 `KIND_RULES`；全局发言间隔见 `REMARK_GAP`（quiet 600s / normal 200s / chatty 75s）。
 - 话题匹配只在 browser / video / game / other 类活动下进行。代码、终端、文档窗口的标题是文件名和项目名，不参与匹配。
@@ -129,7 +133,8 @@
 | `title_permission` / `request_title_permission` | activity.rs | macOS 屏幕录制权限；其他平台返回 true |
 | `drag_begin` / `drag_end` | motion.rs | async。`drag_end` 返回 `click / drop / throw / none` |
 | `set_body` / `set_hit_rects` | motion.rs | async。窗口内逻辑像素 `[l,t,r,b]` |
-| `fall` / `glide_by` | motion.rs | async |
+| `fall` | motion.rs | async |
+| `glide_by` | motion.rs | async。`(dx, speed px/s, linear)`，返回被屏幕边缘截断后的实际 dx |
 | `set_pet_scale` | motion.rs | async。窗口缩放到基准尺寸 × factor，保持脚底中点不动 |
 | `debug_throw` | motion.rs | 仅 DEV 生效：以给定速度抛出 |
 | `store_load` / `store_save` | store.rs | 名称白名单：`settings`、`memory` |
@@ -163,6 +168,8 @@
 3. 运行 `python art/build_sprites.py` 生成 `public/sprites/`。姿势的头部大小不一致时，调整 `POSES[name]["scale"]`（坐姿约 0.8）。
 4. 新增姿势：添加提示词 → 生成 `raw/<name>.png` → 在 `POSES` 中登记 → 加入 `rig.ts` 的 `PoseName` → 按需加入 `pet.ts` 的 `EMOTION_POSE`、`REACTIONS` 或待机动作。
 5. 托盘图标：修改 `art/tray/whale.svg` 后运行 `node art/tray/build-tray.mjs`。macOS 用的是模板图（纯黑加透明，由系统着色）。
+6. 移动循环帧：先生成关键帧（walk_a、run_a），再用 `ref/mask_*_legs.png`（只开放裙摆下半部分和腿）做局部编辑，生成其余帧。这样头和上身完全一致，切帧不会闪；同一组循环帧要用相同的 scale。
+7. 角色声音：把录音放到 `art/voice/raw/<emotion>-<n>.wav`，运行 `python art/voice/build_voice.py [--pitch 1.1]`（需要带 rubberband 的 ffmpeg）。也可以用 `art/voice/generate.py` 调用 TTS 生成（需要能提供音频模型的 OpenAI 兼容接口，设置 VOICE_API_BASE_URL / VOICE_API_KEY；Codex 网关不支持）。用了 AI 语音时，要在 README 中向用户说明。
 
 ## 不可破坏的约定
 

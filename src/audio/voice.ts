@@ -1,6 +1,7 @@
-// Wordless "character voice" (think Zelda / Animal Crossing): a tiny formant
-// synthesizer strings vowel-like syllables together, and the pitch contour and
-// rhythm carry the emotion.
+// Wordless "character voice": short emotive interjections.
+// Recorded clips in public/voice/ (see manifest.json, built by art/voice/build_voice.py)
+// are used when available; otherwise a tiny formant synthesizer strings
+// vowel-like syllables together and the pitch contour carries the emotion.
 import { engine, jitter } from "./engine";
 
 export type VoiceKind =
@@ -266,6 +267,8 @@ export function playVoice(kind: VoiceKind): number {
   if (!ctx || !engine.settings.voice) return 0;
   // Don't talk over herself.
   if (ctx.currentTime < (busyUntil.get(ctx) ?? 0) - 0.05) return 0;
+  const recorded = playClip(ctx, kind);
+  if (recorded) return recorded;
   const options = PHRASES[kind]();
   const phrase = options[Math.floor(Math.random() * options.length)];
   const base = jitter(BASE_PITCH, 0.05);
@@ -281,4 +284,65 @@ export function playVoice(kind: VoiceKind): number {
   for (const s of phrase) t = syllable(ctx, bus, s, t, base, tempo);
   busyUntil.set(ctx, t);
   return t - start;
+}
+
+// ---------- recorded clips ----------
+
+/** public/voice/manifest.json: { "<kind>": ["happy-1.mp3", …] } */
+const clips = new Map<VoiceKind, AudioBuffer[]>();
+const lastClip = new Map<VoiceKind, AudioBuffer>();
+
+/** Fetch and decode every clip listed in the manifest. Missing manifest = synth only. */
+export async function loadVoiceClips() {
+  let manifest: Partial<Record<VoiceKind, string[]>>;
+  try {
+    const r = await fetch("/voice/manifest.json");
+    if (!r.ok) return;
+    manifest = await r.json();
+  } catch {
+    return;
+  }
+  // AudioBuffers aren't tied to a context; decode once and play anywhere.
+  const decoder = new OfflineAudioContext(1, 1, 48000);
+  await Promise.all(
+    Object.entries(manifest).map(async ([kind, files]) => {
+      const bufs = await Promise.all(
+        (files ?? []).map(async (f) => {
+          try {
+            return await decoder.decodeAudioData(await (await fetch(`/voice/${f}`)).arrayBuffer());
+          } catch (e) {
+            console.warn("voice clip failed", f, e);
+            return null;
+          }
+        }),
+      );
+      const ok = bufs.filter((b): b is AudioBuffer => !!b);
+      if (ok.length) clips.set(kind as VoiceKind, ok);
+    }),
+  );
+}
+
+export function hasVoiceClips() {
+  return clips.size > 0;
+}
+
+function playClip(ctx: BaseAudioContext, kind: VoiceKind): number {
+  const list = clips.get(kind);
+  if (!list?.length) return 0;
+  const fresh = list.filter((b) => b !== lastClip.get(kind));
+  const buf = (fresh.length ? fresh : list)[Math.floor(Math.random() * (fresh.length || list.length))];
+  lastClip.set(kind, buf);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  // A hair of pitch variation so repeats don't sound copy-pasted.
+  src.playbackRate.value = jitter(1, 0.03);
+  // Clips are normalized to -18 LUFS; lift them to sit level with the effects.
+  const gain = ctx.createGain();
+  gain.gain.value = 2;
+  src.connect(gain).connect(engine.voiceBus);
+  const t = ctx.currentTime + 0.01;
+  src.start(t);
+  const dur = buf.duration / src.playbackRate.value;
+  busyUntil.set(ctx, t + dur);
+  return dur;
 }

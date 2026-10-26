@@ -30,3 +30,4 @@ src-tauri/gen
 
 # Python
 __pycache__/
+.venv/

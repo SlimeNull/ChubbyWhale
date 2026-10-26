@@ -122,6 +122,7 @@ export class Pet {
   private lastReaction: Partial<Record<ReactionKind, number>> = {};
   private flight: Reaction | null = null;
   private lastBoing = 0;
+  private stepTimer = 0;
   /** Called whenever she says something, so the brain can remember it. */
   onSaid: (text: string, kind: string) => void = () => {};
   /** Called when the user pokes her (the brain may want to chat back). */
@@ -185,6 +186,7 @@ export class Pet {
 
   /** Hold a pose for a while, then return to idle unless interrupted. */
   async act(pose: PoseName, ms: number, setup?: () => void) {
+    this.stopWalking();
     const my = ++this.token;
     this.mode = "action";
     this.rig.setPose(pose);
@@ -221,7 +223,14 @@ export class Pet {
     return r;
   }
 
+  /** Stop a walk / run cycle and its footsteps (also when interrupted). */
+  private stopWalking() {
+    clearInterval(this.stepTimer);
+    this.rig.stopCycle();
+  }
+
   private toIdle(pop = true) {
+    this.stopWalking();
     this.token++;
     this.mode = "idle";
     this.rig.setPose("idle", pop);
@@ -234,6 +243,7 @@ export class Pet {
 
   sleep() {
     if (this.mode === "drag" || this.mode === "fly" || this.mode === "sleep") return;
+    this.stopWalking();
     this.token++;
     this.mode = "sleep";
     this.bubble.hide();
@@ -316,17 +326,34 @@ export class Pet {
     this.nextIdleAction = performance.now() + rand(8000, 18000);
   }
 
+  /** Walk (or sometimes run) along the bottom of the screen. */
   private async wander() {
+    const run = chance(0.3) && this.rig.has("run_a");
     const dir = chance(0.5) ? -1 : 1;
-    const secs = rand(1.6, 2.6);
+    const size = this.rig.height / 230;
+    // Speeds are in logical px/s and scale with the pet so steps never "skate".
+    const speed = (run ? 150 : 55) * size;
+    const dist = (run ? rand(160, 340) : rand(60, 170)) * size;
     const my = ++this.token;
     this.mode = "action";
-    this.rig.flip = dir < 0;
-    this.rig.leanTarget = dir * 0.05;
-    this.rig.bob = 4;
-    const moved = await ipc.glideBy(dir * rand(60, 180), secs).catch(() => 0);
-    await sleep(Math.abs(moved) > 1 ? secs * 1000 : 300);
-    if (my === this.token) this.toIdle(false);
+    const moved = await ipc.glideBy(dir * dist, speed, true).catch(() => 0);
+    if (my !== this.token) return;
+    if (Math.abs(moved) < 8) {
+      // Blocked by the screen edge: look that way instead.
+      this.act("look", 1800, () => (this.rig.flip = dir > 0));
+      return;
+    }
+    // The walk / run art faces left.
+    this.rig.flip = moved > 0;
+    if (run) this.rig.playCycle(["run_a", "run_b"], 6, { stepsPerFrame: 1, bob: 7 });
+    else this.rig.playCycle(["walk_a", "walk_pass", "walk_b", "walk_pass"], 6, { stepsPerFrame: 0.5, bob: 3 });
+    const stepsPerSec = run ? 6 : 3;
+    this.stepTimer = window.setInterval(() => playSfx("step", run ? 0.7 : 0.4), 1000 / stepsPerSec);
+    if (run && chance(0.5)) playVoice("happy");
+    await sleep((Math.abs(moved) / speed) * 1000);
+    if (my !== this.token) return; // interrupted: whoever took over already stopped the walk
+    this.toIdle(false);
+    this.rig.squash(1.08, 0.94);
   }
 
   // ---------- pointer & motion ----------
@@ -375,6 +402,7 @@ export class Pet {
   private onMotion(e: MotionEvent) {
     switch (e.kind) {
       case "drag-start": {
+        this.stopWalking();
         this.token++;
         this.mode = "drag";
         this.memory.bump("drags");

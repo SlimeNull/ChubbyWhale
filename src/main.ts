@@ -1,5 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { engine } from "./audio/engine";
+import { loadVoiceClips } from "./audio/voice";
 import { Director } from "./brain/director";
 import { Voice } from "./brain/lines";
 import { LlmBrain } from "./brain/llm";
@@ -30,6 +31,7 @@ async function main() {
   };
   await applySize();
   engine.configure(settings.sound);
+  loadVoiceClips();
   await rig.init(stage);
   const fx = new Fx(rig, rig.fxLayer);
   const bubble = new Bubble(stage);

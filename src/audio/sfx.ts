@@ -1,76 +1,130 @@
-// Synthesized sound effects. Each call is slightly randomized so repeats don't sound canned.
-import { engine, envelope, jitter } from "./engine";
+// Synthesized sound effects in a soft, "cute game UI" style: bell and
+// music-box tones on a pentatonic scale, slide whistles, chick chirps, and a
+// touch of reverb. Each call is slightly randomized so repeats don't sound canned.
+import { engine, jitter } from "./engine";
 
-export type SfxName = "pop" | "pickup" | "whoosh" | "boing" | "thud" | "softland" | "dizzy" | "puff" | "sparkle";
+export type SfxName = "pop" | "pickup" | "whoosh" | "boing" | "thud" | "softland" | "dizzy" | "puff" | "sparkle" | "step";
 
-export const SFX_NAMES: SfxName[] = ["pop", "pickup", "whoosh", "boing", "thud", "softland", "dizzy", "puff", "sparkle"];
+export const SFX_NAMES: SfxName[] = ["pop", "pickup", "whoosh", "boing", "thud", "softland", "dizzy", "puff", "sparkle", "step"];
+
+// Major pentatonic around C6 — anything picked from here sounds pleasant together.
+const PENTA = [1046.5, 1174.7, 1318.5, 1568, 1760, 2093, 2349.3, 2637];
+const pick = <T>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
 
 /** `intensity` (0..1) scales volume/pitch for impacts. */
 export function playSfx(name: SfxName, intensity = 0.6) {
   const ctx = engine.get();
   if (!ctx || !engine.settings.effects) return;
   const t = ctx.currentTime + 0.005;
-  const out = engine.sfxBus;
+  const dry = engine.sfxBus;
+  const wet = engine.sfxReverb;
   const i = Math.max(0.1, Math.min(1, intensity));
 
-  const tone = (type: OscillatorType, f0: number, f1: number, dur: number, peak: number, at = t, attack = 0.005) => {
+  /** Route a node to the dry bus plus a little reverb. */
+  const out = (node: AudioNode, reverb = 0.25) => {
+    node.connect(dry);
+    if (reverb > 0) {
+      const send = ctx.createGain();
+      send.gain.value = reverb;
+      node.connect(send).connect(wet);
+    }
+  };
+
+  /** Soft-attack tone with a pitch glide. */
+  const tone = (type: OscillatorType, f0: number, f1: number, dur: number, peak: number, at = t, attack = 0.008, reverb = 0.25) => {
     const o = ctx.createOscillator();
     o.type = type;
     o.frequency.setValueAtTime(f0, at);
-    o.frequency.exponentialRampToValueAtTime(f1, at + dur);
-    const g = envelope(ctx, at, peak, attack, dur);
-    o.connect(g).connect(out);
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, at + dur * 0.7);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(peak, at + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + attack + dur);
+    o.connect(g);
+    out(g, reverb);
     o.start(at);
     o.stop(at + attack + dur + 0.05);
-    return o;
   };
 
-  const hiss = (type: BiquadFilterType, f0: number, f1: number, q: number, dur: number, peak: number, at = t, attack = 0.01) => {
+  /** Glassy FM bell / music-box note. */
+  const bell = (freq: number, at: number, dur: number, peak: number, reverb = 0.4) => {
+    const car = ctx.createOscillator();
+    car.frequency.value = freq;
+    const mod = ctx.createOscillator();
+    mod.frequency.value = freq * 3.5;
+    const idx = ctx.createGain();
+    idx.gain.setValueAtTime(freq * 1.2, at);
+    idx.gain.exponentialRampToValueAtTime(1, at + dur * 0.6);
+    mod.connect(idx).connect(car.frequency);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(peak, at + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    car.connect(g);
+    out(g, reverb);
+    car.start(at);
+    mod.start(at);
+    car.stop(at + dur + 0.05);
+    mod.stop(at + dur + 0.05);
+  };
+
+  /** Breathy air, band-limited so it stays soft. */
+  const air = (f0: number, f1: number, dur: number, peak: number, at = t, q = 1.2) => {
     const n = engine.noise(ctx);
     const f = ctx.createBiquadFilter();
-    f.type = type;
+    f.type = "bandpass";
     f.Q.value = q;
     f.frequency.setValueAtTime(f0, at);
     f.frequency.exponentialRampToValueAtTime(f1, at + dur);
-    const g = envelope(ctx, at, peak, attack, dur);
-    n.connect(f).connect(g).connect(out);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.linearRampToValueAtTime(peak, at + dur * 0.3);
+    g.gain.linearRampToValueAtTime(0.0001, at + dur);
+    n.connect(f).connect(g);
+    out(g, 0.15);
     n.start(at);
-    n.stop(at + attack + dur + 0.05);
+    n.stop(at + dur + 0.05);
   };
 
   switch (name) {
     case "pop": {
-      // A water bubble: pitch rises quickly. Sometimes a second, smaller one.
-      const f = jitter(320, 0.15);
-      tone("sine", f, f * 3.2, 0.07, 0.5);
-      if (Math.random() < 0.5) tone("sine", f * 1.4, f * 4.2, 0.05, 0.25, t + jitter(0.07, 0.3));
+      // "Puni": a round squishy blip that bends up, plus a tiny bell sparkle.
+      const f = jitter(520, 0.12);
+      tone("sine", f * 0.8, f * 1.6, 0.09, 0.55, t, 0.004, 0.15);
+      bell(pick(PENTA.slice(3)), t + 0.03, 0.25, 0.12);
       break;
     }
     case "pickup":
-      tone("triangle", jitter(300, 0.1), jitter(760, 0.1), 0.14, 0.5);
-      hiss("bandpass", 1200, 3200, 1.5, 0.12, 0.3);
+      // "Pyoi": two quick rising notes.
+      tone("triangle", 784, 784 * 1.02, 0.06, 0.35, t, 0.004);
+      tone("triangle", 1175, 1175 * 1.03, 0.1, 0.35, t + 0.06, 0.004);
       break;
     case "whoosh":
-      hiss("bandpass", 380, jitter(2600, 0.2), 1.1, 0.22, 0.5, t, 0.08);
-      hiss("bandpass", 2600, 500, 1.1, 0.3, 0.3, t + 0.2, 0.02);
+      // Slide whistle up, with a soft swish.
+      tone("sine", jitter(600, 0.1), jitter(1900, 0.1), 0.38, 0.32, t, 0.03, 0.3);
+      air(800, 3500, 0.3, 0.12, t);
       break;
     case "boing": {
-      // Spring: a quick rise, then a decaying wobble around the pitch.
-      const base = jitter(150 + 120 * i, 0.12);
-      const dur = 0.25 + 0.3 * i;
+      // "Boyoyon": a bouncy spring, higher and gentler than a cartoon boing.
+      const base = jitter(330 + 160 * i, 0.08);
+      const dur = 0.22 + 0.2 * i;
       const o = ctx.createOscillator();
       o.type = "sine";
-      o.frequency.setValueAtTime(base * 0.6, t);
-      o.frequency.exponentialRampToValueAtTime(base * 2.6, t + 0.04);
-      o.frequency.exponentialRampToValueAtTime(base * 1.8, t + dur);
+      o.frequency.setValueAtTime(base * 0.7, t);
+      o.frequency.exponentialRampToValueAtTime(base * 1.5, t + 0.035);
+      o.frequency.exponentialRampToValueAtTime(base * 1.15, t + dur);
       const lfo = ctx.createOscillator();
-      lfo.frequency.value = jitter(17, 0.15);
+      lfo.frequency.value = jitter(13, 0.1);
       const depth = ctx.createGain();
-      depth.gain.setValueAtTime(base * 0.6, t + 0.04);
+      depth.gain.setValueAtTime(base * 0.22, t + 0.03);
       depth.gain.exponentialRampToValueAtTime(1, t + dur);
       lfo.connect(depth).connect(o.frequency);
-      const g = envelope(ctx, t, 0.25 + 0.35 * i, 0.004, dur);
-      o.connect(g).connect(out);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.3 + 0.25 * i, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g);
+      out(g, 0.25);
       o.start(t);
       lfo.start(t);
       o.stop(t + dur + 0.05);
@@ -78,43 +132,39 @@ export function playSfx(name: SfxName, intensity = 0.6) {
       break;
     }
     case "thud":
-      tone("sine", jitter(120, 0.1), 42, 0.22, 0.5 + 0.4 * i);
-      hiss("lowpass", 600, 150, 0.7, 0.12, 0.25 + 0.3 * i);
+      // "Pokon": a wood-block knock with a soft low "pofu" under it.
+      tone("sine", jitter(880, 0.06), 820, 0.07, 0.45 * (0.6 + 0.4 * i), t, 0.002, 0.2);
+      tone("sine", jitter(1760, 0.06), 1700, 0.04, 0.18, t, 0.002, 0.1);
+      tone("sine", 220, 110, 0.16, 0.35 * i, t, 0.006, 0);
       break;
     case "softland":
-      tone("sine", jitter(180, 0.1), 80, 0.14, 0.4 + 0.3 * i);
-      hiss("lowpass", 1200, 300, 0.7, 0.1, 0.35);
+      // "Pofu": a cushion landing.
+      tone("sine", jitter(330, 0.08), 200, 0.12, 0.3 + 0.2 * i, t, 0.008, 0.1);
+      air(1200, 500, 0.12, 0.08, t, 0.8);
       break;
     case "dizzy": {
-      // Cartoon birds circling: three little chirps, plus a woozy descending warble.
-      for (let k = 0; k < 3; k++) {
-        const at = t + 0.12 + k * jitter(0.16, 0.2);
-        tone("sine", jitter(2500, 0.08), jitter(3500, 0.08), 0.05, 0.12, at, 0.003);
-        tone("sine", jitter(3300, 0.08), jitter(2700, 0.08), 0.04, 0.08, at + 0.06, 0.003);
+      // "Piyo piyo": chicks circling, then a music-box run tumbling down.
+      for (let k = 0; k < 4; k++) {
+        const at = t + k * jitter(0.15, 0.15);
+        const f = k % 2 ? 2800 : 3300;
+        tone("sine", f, f * 1.12, 0.05, 0.14, at, 0.003, 0.2);
+        tone("sine", f * 1.12, f, 0.05, 0.1, at + 0.05, 0.003, 0.2);
       }
-      const o = ctx.createOscillator();
-      o.type = "triangle";
-      o.frequency.setValueAtTime(880, t);
-      o.frequency.exponentialRampToValueAtTime(260, t + 0.9);
-      const lfo = ctx.createOscillator();
-      lfo.frequency.value = 7;
-      const depth = ctx.createGain();
-      depth.gain.value = 50;
-      lfo.connect(depth).connect(o.frequency);
-      const g = envelope(ctx, t, 0.14, 0.05, 0.9);
-      o.connect(g).connect(out);
-      o.start(t);
-      lfo.start(t);
-      o.stop(t + 1);
-      lfo.stop(t + 1);
+      [7, 5, 4, 2, 0].forEach((n, k) => bell(PENTA[n], t + 0.15 + k * 0.11, 0.4, 0.1));
       break;
     }
     case "puff":
-      hiss("lowpass", 1800, 400, 0.6, 0.16, 0.9);
-      tone("sine", jitter(220, 0.1), 120, 0.1, 0.2);
+      // Set down gently: "pofun".
+      tone("sine", 600, 420, 0.1, 0.25, t, 0.01, 0.15);
+      air(1500, 600, 0.1, 0.06, t, 0.8);
       break;
     case "sparkle":
-      [1568, 2093, 2637].forEach((f, k) => tone("sine", f, f * 1.002, 0.45, 0.12, t + k * 0.06, 0.003));
+      // "Kirarin": a quick rising music-box arpeggio.
+      [0, 2, 4, 5].forEach((n, k) => bell(PENTA[n] * (Math.random() < 0.5 ? 1 : 1.5), t + k * 0.06, 0.5, 0.13));
+      break;
+    case "step":
+      // "Pata": a tiny soft footstep.
+      tone("sine", jitter(700, 0.1), 500, 0.05, 0.3 * (0.6 + 0.4 * i), t, 0.003, 0);
       break;
   }
 }

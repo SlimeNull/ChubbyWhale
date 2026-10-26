@@ -25,7 +25,7 @@ export function installDebug(rig: Rig, pet: Pet, fx: Fx) {
   log("info", ["debug installed", { dpr: devicePixelRatio, w: innerWidth, h: innerHeight }]);
 
   if (import.meta.env.VITE_PET_DEMO === "throw") return throwTest(log);
-  if (import.meta.env.VITE_PET_DEMO === "features") return featureTest(rig, log);
+  if (import.meta.env.VITE_PET_DEMO === "features") return featureTest(rig, pet, log);
   if (import.meta.env.VITE_PET_DEMO !== "1") return;
   let frames = 0;
   rig.app.ticker.add(() => frames++);
@@ -131,7 +131,7 @@ function wav(buf: AudioBuffer): string {
 }
 
 /** Sizes, offline audio renders, and every reaction variant. */
-async function featureTest(rig: Rig, log: (level: string, args: unknown[]) => void) {
+async function featureTest(rig: Rig, pet: Pet, log: (level: string, args: unknown[]) => void) {
   const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const { SIZE_SCALE } = await import("./brain/settings");
   const { engine } = await import("./audio/engine");
@@ -173,6 +173,21 @@ async function featureTest(rig: Rig, log: (level: string, args: unknown[]) => vo
     rig.setPose(p, false);
     await wait(900);
     await snap(p);
+  }
+  // Walk / run: drive the real wander() and snapshot mid-stride frames.
+  rig.hang = null;
+  rig.flying = false;
+  rig.spin = 0;
+  const wander = (pet as unknown as { wander(): Promise<void> }).wander.bind(pet);
+  for (let k = 0; k < 4; k++) {
+    pet.mode = "idle";
+    const done = wander();
+    for (let f = 0; f < 3; f++) {
+      await wait(170);
+      await snap(`move${k}-${f}`);
+    }
+    await done;
+    log("info", [`wander ${k} done`]);
   }
   clearInterval(tick);
   log("info", ["features done"]);

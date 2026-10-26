@@ -1,7 +1,7 @@
 import { emit } from "@tauri-apps/api/event";
 import { engine } from "../audio/engine";
 import { playSfx, SFX_NAMES } from "../audio/sfx";
-import { playVoice, VOICE_KINDS } from "../audio/voice";
+import { loadVoiceClips, playVoice, VOICE_KINDS } from "../audio/voice";
 import { STANCE_LABEL, type MemoryData } from "../brain/memory";
 import { loadSettings, saveSettings, type Settings } from "../brain/settings";
 import { ipc } from "../ipc";
@@ -79,7 +79,7 @@ async function showMemory() {
 
 const SFX_LABEL: Record<string, string> = {
   pop: "戳一下", pickup: "拎起来", whoosh: "丢出去", boing: "撞墙", thud: "摔地上",
-  softland: "落地", dizzy: "眩晕", puff: "放下", sparkle: "闪闪",
+  softland: "落地", dizzy: "眩晕", puff: "放下", sparkle: "闪闪", step: "脚步",
 };
 const VOICE_LABEL: Record<string, string> = {
   neutral: "平常", happy: "开心", giggle: "偷笑", surprised: "惊讶", curious: "好奇", shy: "害羞",
@@ -111,6 +111,7 @@ async function main() {
   }
   $("volume").addEventListener("input", persist);
   engine.configure(settings.sound);
+  loadVoiceClips();
   addPreviewButtons();
 
   if (!(await ipc.titlePermission())) {

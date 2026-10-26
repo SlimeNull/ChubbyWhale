@@ -44,7 +44,8 @@ enum Phase {
     Dragging { grab: (f64, f64) },
     /// `area` is the screen work area, looked up once when the flight starts.
     Flying { vx: f64, vy: f64, since: Instant, max_impact: f64, grounded: bool, area: Option<Area> },
-    Gliding { from: (f64, f64), to: (f64, f64), start: Instant, dur: f64 },
+    /// `linear`: constant speed (walking); otherwise smoothstep.
+    Gliding { from: (f64, f64), to: (f64, f64), start: Instant, dur: f64, linear: bool },
 }
 
 struct State {
@@ -274,9 +275,9 @@ fn tick(state: &Arc<Mutex<State>>, window: &WebviewWindow, dt: f64) -> tauri::Re
             new_phase = p;
             new_pos = Some(xy);
         }
-        Phase::Gliding { from, to, start, dur } => {
+        Phase::Gliding { from, to, start, dur, linear } => {
             let t = ((now - start).as_secs_f64() / dur).min(1.0);
-            let e = t * t * (3.0 - 2.0 * t);
+            let e = if linear { t } else { t * t * (3.0 - 2.0 * t) };
             new_pos = Some((from.0 + (to.0 - from.0) * e, from.1 + (to.1 - from.1) * e));
             if t >= 1.0 {
                 new_phase = Phase::Idle;
@@ -404,7 +405,7 @@ pub async fn drag_end(window: WebviewWindow, motion: tauri::State<'_, Motion>) -
         if let Some(to) = clamp_into_screen(&window, &body, pos, k) {
             let mut s = motion.0.lock().unwrap();
             if matches!(s.phase, Phase::Idle) {
-                s.set_phase(Phase::Gliding { from: pos, to, start: Instant::now(), dur: 0.25 });
+                s.set_phase(Phase::Gliding { from: pos, to, start: Instant::now(), dur: 0.25, linear: false });
             }
         }
     }
@@ -433,9 +434,16 @@ pub async fn fall(motion: tauri::State<'_, Motion>) -> Result<(), ()> {
     Ok(())
 }
 
-/// Walk/swim horizontally by `dx` logical px, staying on screen. Returns the actual dx.
+/// Move horizontally by `dx` logical px at `speed` px/s, staying on screen.
+/// `linear` keeps the speed constant (walking). Returns the actual dx.
 #[tauri::command]
-pub async fn glide_by(window: WebviewWindow, motion: tauri::State<'_, Motion>, dx: f64, secs: f64) -> tauri::Result<f64> {
+pub async fn glide_by(
+    window: WebviewWindow,
+    motion: tauri::State<'_, Motion>,
+    dx: f64,
+    speed: f64,
+    linear: bool,
+) -> tauri::Result<f64> {
     let k = scale(&window);
     let p = window.outer_position()?;
     let from = (p.x as f64, p.y as f64);
@@ -452,8 +460,10 @@ pub async fn glide_by(window: WebviewWindow, motion: tauri::State<'_, Motion>, d
     if !matches!(s.phase, Phase::Idle) {
         return Ok(0.0);
     }
-    s.set_phase(Phase::Gliding { from, to, start: Instant::now(), dur: secs.max(0.1) });
-    Ok((to.0 - from.0) / k)
+    let moved = (to.0 - from.0) / k;
+    let dur = (moved.abs() / speed.max(1.0)).max(0.1);
+    s.set_phase(Phase::Gliding { from, to, start: Instant::now(), dur, linear });
+    Ok(moved)
 }
 
 /// Place the pet at the bottom-right corner of the primary work area.

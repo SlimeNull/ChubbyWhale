@@ -575,7 +575,10 @@ export class Pet {
     const stepsPerSec = run ? RUN_STEPS_PER_SEC : WALK_STEPS_PER_SEC;
     const speed = (run ? RUN_STRIDE : WALK_STRIDE) * stepsPerSec * size;
     const dist = (run ? rand(220, 420) : rand(120, 320)) * size;
-    const moved = await ipc.glideBy(dir * dist, speed, true).catch(() => 0);
+    // Keep the whole walk / run frame on screen, not just the (narrower) body.
+    const frames = run ? ["run_a", "run_b"] : ["walk_a", "walk_pass", "walk_b"];
+    const [l, r] = this.rig.spanX(frames, dir > 0);
+    const moved = await ipc.glideBy(dir * dist, speed, true, [l - 4, r + 4]).catch(() => 0);
     if (my !== this.token) return;
     if (Math.abs(moved) < 8) {
       // Blocked by the screen edge: look that way instead.

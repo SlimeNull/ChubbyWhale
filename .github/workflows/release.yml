@@ -55,5 +55,5 @@ jobs:
             macOS 版本未经 Apple 公证：首次打开若被拦截，请到「系统设置 → 隐私与安全性」点击「仍要打开」。
             Windows 若出现 SmartScreen 提示，点「更多信息 → 仍要运行」。
           releaseDraft: true
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
           args: ${{ matrix.args }}

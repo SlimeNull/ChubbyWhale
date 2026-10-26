@@ -521,7 +521,10 @@ pub async fn fall(motion: tauri::State<'_, Motion>) -> Result<(), ()> {
 }
 
 /// Move horizontally by `dx` logical px at `speed` px/s, staying on screen.
-/// `linear` keeps the speed constant (walking). Returns the actual dx.
+/// `linear` keeps the speed constant (walking). `span` is the window-local
+/// [left, right] (logical px) of what is drawn while moving — walk frames are
+/// wider than the body rect — and is kept on screen too. Returns the actual dx;
+/// 0 when the only way to stay on screen is backwards.
 #[tauri::command]
 pub async fn glide_by(
     window: WebviewWindow,
@@ -529,6 +532,7 @@ pub async fn glide_by(
     dx: f64,
     speed: f64,
     linear: bool,
+    span: Option<[f64; 2]>,
 ) -> tauri::Result<f64> {
     let k = scale(&window);
     let p = window.outer_position()?;
@@ -541,7 +545,15 @@ pub async fn glide_by(
         return Ok(0.0);
     }
     let target = (from.0 + dx * k, from.1);
-    let to = clamp_into_screen(&window, &body, target, k).unwrap_or(target);
+    let mut to = clamp_into_screen(&window, &body, target, k).unwrap_or(target);
+    if let Some([l, r]) = span
+        && let Some(a) = work_area(&window, body_center(&body, from, k))
+    {
+        to.0 = to.0.min(a.right - r * k).max(a.left - l * k);
+    }
+    if dx != 0.0 && (to.0 - from.0) * dx < 0.0 {
+        to.0 = from.0; // already at the edge: don't moonwalk away from it
+    }
     let mut s = motion.0.lock().unwrap();
     if !matches!(s.phase, Phase::Idle) {
         return Ok(0.0);

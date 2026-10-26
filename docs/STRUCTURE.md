@@ -21,7 +21,7 @@
 ├── vite.config.ts            多页面构建：index + settings + bubble
 ├── package.json              pnpm；脚本 dev / build / tauri；devDependency @resvg/resvg-js（渲染托盘图标）
 ├── .gitattributes            Git LFS 追踪的二进制：*.png *.webp *.ico *.icns *.wav *.mp3 *.ogg *.m4a *.flac
-├── .github/workflows/release.yml   推送 v* 标签后构建 macOS（arm64/x64）和 Windows 安装包，生成 Release 草稿（checkout 启用 lfs）
+├── .github/workflows/release.yml   推送 v* 标签后构建 macOS（arm64/x64）和 Windows 安装包，生成 Release 草稿（checkout 启用 lfs）；标签带 `-`（如 v0.1.0-alpha.1）时标为预发布。应用版本号保持纯数字（MSI 不接受 alpha 这类预发布后缀）
 ├── .claude/skills/sub2api-imagegen/  生图技能（Images API 脚本），美术流水线用
 ├── dist/                     vite 构建产物（已在 .gitignore 中）
 │
@@ -51,7 +51,7 @@
 │   │   ├── sfx.ts            萌系音效（五声音阶铃音、八音盒、滑哨、小鸡啾啾、少量混响）：pop、pickup、whoosh、boing、thud、softland、dizzy、puff、sparkle、step（脚步）
 │   │   └── voice.ts          「角色声音」（16 种 VoiceKind）：优先播放 public/voice/ 中的录音片段；某种情绪没有片段时，退回共振峰合成的无词音节
 │   ├── pet/                  「身体」：渲染和行为
-│   │   ├── rig.ts            MeshPlane 网格变形渲染：视线差分（gaze）、贴边裁切遮罩（clip）和扒边线位置（edge()）、呼吸、倾斜、挤压拉伸、跳跃、悬挂摆动（looseness）、飞行旋转或翻滚（spin）、逐帧循环（playCycle：走路和跑步，带步伐起伏和左右摇摆）；PoseName 定义；脚的位置随窗口尺寸变化
+│   │   ├── rig.ts            MeshPlane 网格变形渲染：视线差分（gaze）、贴边裁切遮罩（clip）和扒边线位置（edge()）、若干姿势的横向范围（spanX()，走路限位用）、呼吸、倾斜、挤压拉伸、跳跃、悬挂摆动（looseness）、飞行旋转或翻滚（spin）、逐帧循环（playCycle：走路和跑步，带步伐起伏和左右摇摆）；PoseName 定义；脚的位置随窗口尺寸变化
 │   │   ├── pet.ts            行为状态机（place × mode，见下文）：待机动作、日常活动、贴边探头（dock）、眨眼、口型、指针（戳 / 拖 / 丢）、反应变体（REACTIONS）、音效和声音触发、睡眠、点击区域同步
 │   │   ├── gaze.ts           视线控制器：看前方 / 观察附近 / 跟随鼠标，随机切换；回到休息后先看前方，换方向慢、带滞回和停留时间，换方向时眨眼
 │   │   ├── activities.ts     日常活动表（ACTIVITIES：吃饭、打游戏、看书、喝奶茶、听音乐、玩手机、画画）和探头小动作表（PEEK_MOTIONS）
@@ -73,7 +73,7 @@
 ├── public/sprites/           运行时立绘（构建产物，由 art/build_sprites.py 生成，不要手改）
 │   ├── manifest.json         { poses: {name: {w,h,ax}}, variants: {...} }，ax 是头部中心的横向比例
 │   ├── <pose>.webp           41 个姿势：13 个基础姿势、10 个反应变体（giggle、pout、proud、dragged_*、fly_*、hurt_*）、5 帧移动循环（walk_a / walk_pass / walk_b、run_a / run_b，面朝左）、4 个探头（peek、peek_wave、peek_smile、peek_sleepy；扒边线是图片右边缘）、9 个活动帧（eat / eat_b、game / game_b、read、tea、music、phone、draw）
-│   └── idle_*.webp           idle 的差分：眨眼 idle_blink、说话 idle_talk、视线 idle_gaze_{l,r,u,d,ul,ur}
+│   └── idle_*.webp           idle 的差分：眨眼 idle_blink、说话 idle_talk、视线 idle_gaze_{l,r,u,d,ul,ur,dl,dr}（八个方向）
 │
 ├── public/voice/             （可选）角色声音片段 <emotion>-<n>.mp3 和 manifest.json，由 art/voice/build_voice.py 生成；不存在时使用合成声音
 │
@@ -107,7 +107,7 @@
 
 - `Flying`：重力 2600 px/s²。撞左、右、上边缘时反弹（系数 0.55）；落地时反弹（0.32）后受摩擦减速。停稳或飞满 8 秒后发出 `landed` 事件，`impact` 取整个飞行过程中的最大撞击速度。工作区（屏幕可用区域）在起飞时查询一次，存入阶段数据。
 - 松手时速度大于 700 逻辑 px/s 算作「丢出去」，否则原地放下。速度上限 6000。
-- `Gliding`：用于走路 / 跑步（`linear`，匀速）和放下后回到屏内（smoothstep）。`glide_by` 按速度计算时长，时长基于被屏幕边缘截断后的实际距离，所以步频和移动速度始终一致。
+- `Gliding`：用于走路 / 跑步（`linear`，匀速）和放下后回到屏内（smoothstep）。`glide_by` 按速度计算时长，时长基于被屏幕边缘截断后的实际距离，所以步频和移动速度始终一致。可选的 `span` 是移动时画面的横向范围（窗口内逻辑 px），会和身体框一起限制在屏幕内；走跑帧比待机的身体框宽，不传它的话尾巴或身体会走出屏幕。截断后的方向如果和请求相反（已经在边缘），就不移动。
 - 点击穿透：只有当光标位于前端上报的 hit rects（身体框）内，或处于按下 / 拖拽状态时，宠物窗口才接收鼠标。
 - **对话气泡窗口**：宠物窗口只包住她自己（加上头顶约 40px 的特效空间），台词显示在独立的 `bubble` 窗口里。前端用 `set_bubble([头 x, 头顶 y, 头半宽])` 上报位置（隐藏时传 null）；motion 线程每个 tick 把气泡窗口放到头顶上方，头顶上方放不下（靠近菜单栏或屏幕顶部）时放到头的右侧，右侧放不下则放左侧，然后发出 `bubble-place {side, tail}`。工作区每 500ms 刷新一次；气泡窗口的状态只归 motion 线程所有，不放进共享 State。
 - **贴边探头**：松手时如果身体顶到了屏幕左 / 右边缘，`drag_end` 返回 `edge-left` / `edge-right`，前端进入贴边状态 `docked`。此时姿势换成 peek（贴左边时水平翻转），`dock(side, edgeX, top, bottom)` 把窗口滑到让扒边线（`rig.edge(side).x`）正好落在屏幕边缘的位置，`rig.clip` 遮住边缘外的部分（避免露到相邻显示器上）。窗口 resize 后会重新对齐。贴边后身体中心在屏幕外，可能落在相邻显示器上，所以 `dock` 用边缘内侧 12px 的点判断是哪块屏幕。探头姿势的手必须一直钉在屏幕边缘：网格倾斜只作用在上半身（头部），也不做横向挤压。
@@ -124,9 +124,9 @@
 
 - `Pet.mode`：`idle | action | drag | fly | sleep`。`act(pose, ms)` 使用递增的 token 实现可取消的定时姿势。
 - 待机动作每 8～18 秒按权重抽一个：look、curious、yawn（深夜权重更高）、happy 哼歌（hum 声音）、giggle 偷笑、wander 移动、watch 坐下、bob 漂浮，以及 `ACTIVITIES` 里的日常活动（同一活动不会连续出现）。活动可以是单张姿势或多帧循环，带周期性特效、开始和结束时的声音、开头一句台词（有概率）、左右摇摆。
-- **视线**（gaze.ts）：只在地面、站着休息的 idle 姿势、且没在说话时生效。回到休息后先看前方 2.5～4.5 秒（但如果正在跟随一个还在动的鼠标，就继续跟随）；之后每 6～15 秒随机切换模式：front（看前方）/ around（每 2～4.5 秒看一个方向，经常回到正中）/ follow（一直跟着平滑后的鼠标：眼神方向带滞回，每个方向至少停留 0.25 秒；身体倾斜随鼠标的水平位置连续变化；鼠标在动时，她不会去做别的待机动作，模式也大概率保持跟随）。调试面板可以固定某个模式（`force`），固定后回到休息也不会被重置。换方向时眨一下眼。方向用 idle_gaze_* 差分表示，并配合身体倾斜（水平眼神幅度有限，倾斜帮助表达）；眨眼和说话差分优先于视线。光标位置来自 Rust 的 `pet-cursor` 事件。
+- **视线**（gaze.ts）：只在地面、站着休息的 idle 姿势、且没在说话时生效。回到休息后先看前方 2.5～4.5 秒（但如果正在跟随一个还在动的鼠标，就继续跟随）；之后每 6～15 秒随机切换模式：front（看前方）/ around（每 2～4.5 秒看一个方向，经常回到正中）/ follow（一直跟着平滑后的鼠标：按鼠标相对头部的角度分成八个 45° 扇区选方向，越过扇区边界 8° 才换，离脸 50px 以内看前方（已经在看别处时为 30px），每个方向至少停留 0.25 秒；身体倾斜随鼠标的水平位置连续变化；鼠标在动时，她不会去做别的待机动作，模式也大概率保持跟随）。调试面板可以固定某个模式（`force`），固定后回到休息也不会被重置。换方向时眨一下眼。方向用 idle_gaze_* 差分表示，并配合身体倾斜（水平眼神幅度有限，倾斜帮助表达）；眨眼和说话差分优先于视线。光标位置来自 Rust 的 `pet-cursor` 事件。
 - **贴边时**（`docked`）：休息姿势变成 peek。待机改为抽 `PEEK_MOTIONS`：挥手、偷笑、缩回去再探出来（tuck：屏幕边缘落到她身体里 75% 宽度的位置，只露一小条）、伸头张望（lean-out：只有头往外歪，手不动）、歪头、问号、打瞌睡（深夜权重更高）。说话时只换成 peek / peek_smile，不切换全身姿势；被戳时用 `pokePeek` 反应；睡觉用 peek_sleepy；不会走路。只要被拎起，就解除贴边。
-- **wander 移动**：70% 走路（walk_a → walk_pass → walk_b → walk_pass，4fps，每秒 2 步），30% 小跑（run_a ↔ run_b，4fps，每秒 4 步）。移动速度 = 步幅 × 步频 × 大小系数，步幅取立绘中两脚间距（中号时走路 72px、跑步 100px，即 `WALK_STRIDE` / `RUN_STRIDE`），这样着地的脚相对地面不动，不会滑步。改了移动立绘就要重新测量步幅。`playCycle` 的 `phase` 让身体在脚着地时（走路帧 A、B 的中间）最低，在收腿帧时最高；`onStep` 在每次着地时触发脚步声。移动图朝左，向右走时水平翻转。被屏幕边缘挡住时改为朝那个方向张望。被拎起、睡觉或其他动作打断时，`stopWalking()` 会停掉帧循环（脚步声也随之停止）。
+- **wander 移动**：70% 走路（walk_a → walk_pass → walk_b → walk_pass，4fps，每秒 2 步），30% 小跑（run_a ↔ run_b，4fps，每秒 4 步）。移动速度 = 步幅 × 步频 × 大小系数，步幅取立绘中两脚间距（中号时走路 72px、跑步 100px，即 `WALK_STRIDE` / `RUN_STRIDE`），这样着地的脚相对地面不动，不会滑步。改了移动立绘就要重新测量步幅。`playCycle` 的 `phase` 让身体在脚着地时（走路帧 A、B 的中间）最低，在收腿帧时最高；`onStep` 在每次着地时触发脚步声。移动图朝左，向右走时水平翻转。出发前用 `rig.spanX()` 算出这组走跑帧（按行进方向翻转后）的横向范围，左右各留 4px，作为 `glide_by` 的 `span`，保证整张图都留在屏幕里。被屏幕边缘挡住时改为朝那个方向张望。被拎起、睡觉或其他动作打断时，`stopWalking()` 会停掉帧循环（脚步声也随之停止）。
 - 眨眼和说话只在 idle 姿势上生效，通过切换差分贴图实现。
 - **反应变体**（`pet.ts` 的 `REACTIONS`）：每种情况有多个反应，每个反应包含姿势、音效 / 声音、台词（带概率）、特效、跳跃或挤压，以及悬挂松紧或翻滚。挑选时不会和上一次相同，并跳过没有贴图的姿势。
   - `poke`：shy / giggle / shocked / happy / curious；4 秒内戳 4 次以上触发 `pokeSpam`：pout / shocked
@@ -156,7 +156,7 @@
 | `set_body` / `set_hit_rects` | motion.rs | async。窗口内逻辑像素 `[l,t,r,b]` |
 | `set_bubble` | motion.rs | async。`[头 x, 头顶 y, 头半宽]`（窗口内逻辑像素）或 null |
 | `fall` | motion.rs | async |
-| `glide_by` | motion.rs | async。`(dx, speed px/s, linear)`，返回被屏幕边缘截断后的实际 dx |
+| `glide_by` | motion.rs | async。`(dx, speed px/s, linear, span?: [left, right])`，返回被屏幕边缘截断后的实际 dx |
 | `dock` | motion.rs | async。`(side, edgeX, top, bottom)`：滑动窗口，让窗口内 x=edgeX 落在屏幕左 / 右边缘，同时保证 top..bottom 这一段在屏幕内 |
 | `set_pet_scale` | motion.rs | async。窗口缩放到基准尺寸 × factor，保持脚底中点不动 |
 | `debug_throw` | motion.rs | 仅 DEV 生效：以给定速度抛出 |
@@ -220,6 +220,7 @@
 - `VITE_PET_DEMO=1 pnpm tauri dev`：依次播放全部姿势，把截图存到 `debug/snap-*.png`。
 - `VITE_PET_DEMO=throw pnpm tauri dev`：抛掷压力测试，结果写入 `debug/log.txt`（6 次 throw 的落地时间，以及后端往返耗时的最大值）。
 - **调试面板**：开发版运行后，在托盘菜单或右键菜单里选「调试面板…」，可以直接触发待机动作、日常活动、视线模式和指定方向、贴边和探头动作、抛掷、睡觉和醒来，并实时显示 place / mode / pose / gaze。命令也受状态机约束（例如贴边时触发日常活动会被拒绝）。
+- `VITE_PET_DEMO=walk`：带着走路 / 跑步帧的 `span` 一路走到左右屏幕边缘，记录到边时帧边缘离屏幕边缘的距离（`frameGap`，物理像素，应为正，约等于 4px 余量 × 缩放）和对应的身体框距离，再检查已经贴着边缘时继续走不会移动。
 - `VITE_PET_DEMO=follow`：模拟光标（`gaze.simulateCursor`，会忽略真实鼠标）绕着她的头转圈，记录每次眼神变化和身体倾斜，并截图。
 - `VITE_PET_DEMO=gaze`：强制进入「随机看看」模式，拍 30 秒（每 0.6 秒一帧 `snap-film-*.png`），并在日志里记录每次眼神变化。`VITE_PET_DEMO=panel`：依次回放调试面板的全部命令，检查每条命令的执行结果。
 - `VITE_PET_DEMO=dock`：依次贴靠左右边缘，在静止时和每个探头小动作进行中、结束后，记录扒边线与屏幕边缘的偏差（物理像素，0 为贴齐，取整误差约 ±1）；检查贴边时地面行为被拒绝、缩回去被打断后能复位；跑一遍所有探头小动作和日常活动并截图，测试跟随视线（真实光标会覆盖测试设定的光标位置）。

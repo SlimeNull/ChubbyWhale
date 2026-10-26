@@ -46,7 +46,7 @@ export type PoseName =
   | "draw";
 
 /** Eye direction on the idle pose (screen directions); "" = straight ahead. */
-export type Gaze = "" | "l" | "r" | "u" | "d" | "ul" | "ur";
+export type Gaze = "" | "l" | "r" | "u" | "d" | "ul" | "ur" | "dl" | "dr";
 
 interface SpriteMeta {
   w: number;
@@ -195,6 +195,21 @@ export class Rig {
     const out = (1 - m.ax) * m.w * s; // peek art: the grip edge is the image's right side
     const f = this.floor;
     return { x: side === "right" ? f.x + out : f.x - out, top: f.y - m.h * s, bottom: f.y, width: m.w * s };
+  }
+
+  /** Window-local [left, right] covered by any of `poses` drawn with the given flip. */
+  spanX(poses: string[], flip: boolean): [number, number] {
+    const s = this.scale;
+    let l = Infinity;
+    let r = -Infinity;
+    for (const p of poses) {
+      const m = this.meta.get(p);
+      if (!m) continue;
+      const ax = flip ? 1 - m.ax : m.ax;
+      l = Math.min(l, this.floor.x - ax * m.w * s);
+      r = Math.max(r, this.floor.x + (1 - ax) * m.w * s);
+    }
+    return [l, r];
   }
 
   get ready() {

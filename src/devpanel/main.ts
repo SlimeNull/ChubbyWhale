@@ -14,6 +14,7 @@ const GROUPS: [title: string, cmds: Cmd[]][] = [
     ["自动切换模式", "gaze-mode", null],
     ["正前", "gaze-hold", ""], ["左", "gaze-hold", "l"], ["右", "gaze-hold", "r"], ["下", "gaze-hold", "d"],
     ["左上", "gaze-hold", "ul"], ["右上", "gaze-hold", "ur"], ["上", "gaze-hold", "u"],
+    ["左下", "gaze-hold", "dl"], ["右下", "gaze-hold", "dr"],
     ["解除锁定", "gaze-hold", null],
     ["轮流看一遍", "gaze-tour"],
   ]],

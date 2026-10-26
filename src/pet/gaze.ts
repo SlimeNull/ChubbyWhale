@@ -16,7 +16,10 @@ const pick = <T>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
 
 /** Lean toward where she looks (radians-ish). */
 // The art only lets the eyes move a little sideways, so the lean carries part of the look.
-const LEAN: Record<Gaze, number> = { "": 0, l: -0.03, r: 0.03, u: 0, d: 0, ul: -0.022, ur: 0.022 };
+const LEAN: Record<Gaze, number> = { "": 0, l: -0.03, r: 0.03, u: 0, d: 0, ul: -0.022, ur: 0.022, dl: -0.022, dr: 0.022 };
+
+/** The eight directions by angle on screen (0 = right, clockwise since y points down). */
+const SECTORS: Gaze[] = ["r", "dr", "d", "dl", "l", "ul", "u", "ur"];
 
 /** Minimum time on one direction while following, ms (just enough to avoid flicker). */
 const FOLLOW_DWELL = 250;
@@ -106,7 +109,7 @@ export class GazeController {
       if (now > this.nextGlance) {
         this.nextGlance = now + rand(2000, 4500);
         // Often come back to center between glances.
-        const next = this.rig.gaze && Math.random() < 0.45 ? "" : pick<Gaze>(["l", "r", "ul", "ur", "u", "d", "l", "r"]);
+        const next = this.rig.gaze && Math.random() < 0.45 ? "" : pick<Gaze>(["l", "r", "ul", "ur", "u", "d", "dl", "dr", "l", "r"]);
         this.shift(next, now);
       }
     } else {
@@ -154,14 +157,16 @@ export class GazeController {
     const dx = s.x - h.x;
     const dy = s.y - h.y;
     const cur = this.rig.gaze;
-    // Harder to start looking a way than to keep looking that way.
-    const hx = cur.includes("l") || cur.includes("r") ? 20 : 40;
-    const hy = cur.includes("u") || cur === "d" ? 30 : 50;
-    const horiz = dx < -hx ? "l" : dx > hx ? "r" : "";
-    const vert = dy < -hy ? "u" : dy > hy ? "d" : "";
-    if (vert === "u") return horiz ? (`u${horiz}` as Gaze) : "u";
-    if (vert === "d") return horiz || "d"; // no down-left/right art; sideways reads better
-    return horiz;
+    // Close to her face she looks straight ahead; harder to start looking away than to keep looking.
+    if (Math.hypot(dx, dy) < (cur ? 30 : 50)) return "";
+    // One of eight 45° sectors; keep the current one until the cursor is 8° past its border.
+    const a = Math.atan2(dy, dx);
+    const ci = SECTORS.indexOf(cur);
+    if (ci >= 0) {
+      const off = Math.abs(((a - (ci * Math.PI) / 4 + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
+      if (off < Math.PI / 8 + (8 * Math.PI) / 180) return cur;
+    }
+    return SECTORS[(Math.round(a / (Math.PI / 4)) + 8) % 8];
   }
 
   private shift(g: Gaze, now: number) {

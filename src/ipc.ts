@@ -37,7 +37,9 @@ export const ipc = {
   setBubble: (anchor: [number, number, number] | null) => invoke<void>("set_bubble", { anchor }),
   fall: () => invoke<void>("fall"),
   /** Move by `dx` at `speed` px/s; resolves to the actual distance once the move has started. */
-  glideBy: (dx: number, speed: number, linear = false) => invoke<number>("glide_by", { dx, speed, linear }),
+  /** `span`: window-local [left, right] of what is drawn while moving, kept on screen. */
+  glideBy: (dx: number, speed: number, linear = false, span?: [number, number]) =>
+    invoke<number>("glide_by", { dx, speed, linear, span: span ?? null }),
   setPetScale: (factor: number) => invoke<void>("set_pet_scale", { factor }),
   /** Slide so window-local x `edgeX` sits on that screen edge; `top..bottom` stays on screen. */
   dock: (side: "left" | "right", edgeX: number, top: number, bottom: number) => invoke<void>("dock", { side, edgeX, top, bottom }),

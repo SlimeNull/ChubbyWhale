@@ -70,6 +70,7 @@ export function installDebug(rig: Rig, pet: Pet, fx: Fx) {
     return;
   }
   if (import.meta.env.VITE_PET_DEMO === "features") return featureTest(rig, pet, log);
+  if (import.meta.env.VITE_PET_DEMO === "walk") return walkTest(rig, log);
   if (import.meta.env.VITE_PET_DEMO !== "1") return;
   let frames = 0;
   rig.app.ticker.add(() => frames++);
@@ -239,6 +240,34 @@ async function featureTest(rig: Rig, pet: Pet, log: (level: string, args: unknow
 }
 
 /** Docking at both screen sides, every peek motion, every activity, and gaze modes. */
+/** Walk / run into each screen edge: the whole frame must stay on screen (gap ≥ 0, physical px). */
+async function walkTest(rig: Rig, log: (level: string, args: unknown[]) => void) {
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  await wait(1500);
+  for (const frames of [["walk_a", "walk_pass", "walk_b"], ["run_a", "run_b"]]) {
+    for (const dir of [1, -1, 1]) {
+      const span = rig.spanX(frames, dir > 0);
+      const body = rig.bodyRect();
+      const moved = await ipc.glideBy(dir * 5000, 3000, true, [span[0] - 4, span[1] + 4]);
+      await wait((Math.abs(moved) / 3000) * 1000 + 400);
+      const w = String(await invoke("debug_windows", { to: null }));
+      const n = (re: RegExp) => Number(w.match(re)![1]);
+      const [k, left, right, x] = [n(/scale ([\d.]+)/), n(/left (-?\d+)/), n(/right (-?\d+)/), n(/pet \((-?\d+)/)];
+      const gap = dir > 0 ? right - (x + span[1] * k) : x + span[0] * k - left;
+      const bodyGap = dir > 0 ? right - (x + body[2] * k) : x + body[0] * k - left;
+      log("info", [`walk ${frames[0]} dir ${dir}`, { moved: Math.round(moved), frameGap: Math.round(gap), bodyGap: Math.round(bodyGap) }]);
+    }
+    // Already at the edge: walking on must not move her (nor back away).
+    const s = rig.spanX(frames, true);
+    const again = await ipc.glideBy(5000, 3000, true, [s[0] - 4, s[1] + 4]);
+    log("info", [`walk ${frames[0]} at edge again`, { moved: Math.round(again) }]);
+    await wait(400);
+    await ipc.glideBy(-400, 3000, true);
+    await wait(500);
+  }
+  log("info", ["walk done"]);
+}
+
 async function dockTest(rig: Rig, pet: Pet, log: (level: string, args: unknown[]) => void) {
   const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const p = pet as unknown as {
@@ -368,7 +397,7 @@ function installPanelBridge(rig: Rig, pet: Pet) {
         break;
       case "gaze-tour":
         p.toRest();
-        for (const g of ["", "l", "ul", "u", "ur", "r", "d", ""]) {
+        for (const g of ["", "l", "ul", "u", "ur", "r", "dr", "d", "dl", ""]) {
           p.gaze.hold(g);
           await wait(1200);
         }

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>大肥鱼 · 设置</title>
+    <script type="module" src="/src/settings/main.ts"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="/sprites/idle.webp" alt="" />
+        <div>
+          <h1>大肥鱼 · 设置</h1>
+          <p class="muted">Chubby Whale 桌面宠物</p>
+        </div>
+      </header>
+
+      <section>
+        <h2>外观</h2>
+        <label class="row">
+          <span>大小</span>
+          <input id="size" type="range" min="0.7" max="1.3" step="0.05" />
+          <output id="sizeOut"></output>
+        </label>
+      </section>
+
+      <section>
+        <h2>陪伴</h2>
+        <label class="row check"><input id="activityAware" type="checkbox" /> 关注我在做什么（写代码、写文档时给我加油）</label>
+        <label class="row check"><input id="commentOnPages" type="checkbox" /> 评论我正在看的网页</label>
+        <label class="row">
+          <span>话痨程度</span>
+          <select id="chattiness">
+            <option value="quiet">安静</option>
+            <option value="normal">适中</option>
+            <option value="chatty">话痨</option>
+          </select>
+        </label>
+        <div id="permission" class="note" hidden>
+          macOS 需要「屏幕录制」权限才能读取其他应用的窗口标题（大肥鱼只读取标题文字，不会录屏）。
+          <button id="grant" type="button">打开授权</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>AI 对话（可选）</h2>
+        <p class="muted">接入 DeepSeek 或任意兼容 OpenAI 接口的模型，让大肥鱼说出更多样的话。不开启时使用内置台词，完全离线。</p>
+        <label class="row check"><input id="llmEnabled" type="checkbox" /> 启用 AI 对话</label>
+        <label class="row"><span>接口地址</span><input id="baseUrl" type="url" placeholder="https://api.deepseek.com" /></label>
+        <label class="row"><span>模型</span><input id="model" type="text" placeholder="deepseek-chat" /></label>
+        <label class="row"><span>API Key</span><input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" /></label>
+        <label class="row check"><input id="shareTitles" type="checkbox" /> 允许把窗口标题发送给 AI（关闭时只发送「在写代码」「在看 Minecraft」这类概括）</label>
+        <p class="muted small">API Key 以明文保存在本机数据目录的 settings.json 中。</p>
+        <div class="actions">
+          <button id="test" type="button">测试一下</button>
+          <span id="testOut" class="muted"></span>
+        </div>
+      </section>
+
+      <section>
+        <h2>记忆</h2>
+        <p class="muted">大肥鱼表达过的喜好会被记住，之后不会自相矛盾。</p>
+        <ul id="opinions" class="opinions"></ul>
+        <div class="actions">
+          <button id="clear" type="button" class="danger">清空记忆</button>
+          <span id="dataDir" class="muted small"></span>
+        </div>
+      </section>
+
+      <footer class="muted small">
+        代码以 GPL-3.0 许可开源；立绘参考社区「鲸鱼娘开源资产库」的 Q 版大肥鱼设定，以 CC BY-NC-SA 4.0 许可，禁止商用。本项目与深度求索公司无关。
+      </footer>
+    </main>
+  </body>
+</html>

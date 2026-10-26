@@ -1,0 +1,65 @@
+{
+  "timestamp_utc": "2026-10-26T09:18:38.216847+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2",
+      "prompt": "用途：桌面宠物角色立绘母版（之后会以它为参考生成多个姿势、眨眼和说话差分，所以设计要清晰、易于保持一致）。\n输入图：图1是\"Q 版大肥鱼\"（社区鲸鱼娘）的角色设定图，包含正面、侧面、背面三视图和细节特写。请严格按照图1的角色设计画同一个角色，不要改动设计。\n角色要点（与图1一致）：Q 版蓝色鲸鱼娘，大头小身材约三头身，圆润比例；深海蓝渐变到浅海蓝/浅青蓝的浓密长卷发，从肩背两侧垂下，发尾呈波浪卷；层叠斜刘海，头顶弧形呆毛；圆脸、粉色腮红、很大的蓝色眼睛带多重高光；头戴拱起的白色蕾丝女仆发箍，两侧各一个亮蓝色小蝴蝶结；头两侧一对向外展开的深海蓝鲸鱼鳍状耳朵，内缘有白色波浪褶边；身后一条厚实的深蓝色鲸尾从腰后向侧面弯起，末端两片圆润尾鳍；深蓝与白色女仆裙：白色高领褶裥衬衫、深蓝领结中央镶椭圆蓝宝石、深蓝蓬袖带白色蕾丝袖口、白色荷叶边围裙正中印小蓝鲸与水花图案、深蓝短裙下叠多层白色花边、裙面有细小金色十字星和浅金色蝴蝶结；白色花边短袜，深蓝色圆头玛丽珍鞋带浅金色小蝴蝶结。\n姿势与表情：正面站立，身体正对观众，双臂自然垂在身体两侧稍微张开，温柔微笑，嘴巴闭合（闭口微笑），眼睛睁开看向观众。\n风格：与图1相同的日系 Q 版插画画风，干净的赛璐璐上色，清晰的深色描边，柔和阴影。\n构图：只画一个全身正面角色，完整入镜，人物居中，头顶和脚底留少量空白，人物高度约占画面 85%。\n背景：真实透明背景，无地面、无投影、无边框、无细节特写框。\n避免：文字、水印、logo、多个角色、多视图、裁切到身体。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/ref/upstream/dafeiyu-chibi-character-sheet.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 109.924,
+  "usage": {
+    "input_tokens": 2081,
+    "input_tokens_details": {
+      "image_tokens": 1452,
+      "text_tokens": 629
+    },
+    "output_tokens": 1930,
+    "output_tokens_details": {
+      "image_tokens": 1930,
+      "text_tokens": 0
+    },
+    "total_tokens": 4011
+  },
+  "response_metadata": {
+    "created": 1793006257,
+    "size": "1216x1293",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/raw/master.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1216,
+        1293
+      ],
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 766540,
+      "nonopaque_pixels": 1571572,
+      "fully_transparent_fraction": 0.487532,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2",
+      "reported_size": "1216x1293",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求尺寸 1024x1536，实际尺寸 1216x1293。",
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

@@ -664,9 +664,10 @@ export class Pet {
         this.rig.gaze = "";
         // Hold her by the collar; keep the dangling body inside the window.
         const h = this.rig.height;
+        const pivot = this.rig.figure.hang;
         this.rig.hang = {
           x: Math.max(h * 0.3, Math.min(window.innerWidth - h * 0.3, this.grab.x)),
-          y: Math.max(h * 0.3 + 10, Math.min(window.innerHeight - h * 0.72, this.grab.y)),
+          y: Math.max(h * pivot + 10, Math.min(window.innerHeight - h * (1.02 - pivot), this.grab.y)),
         };
         this.rig.squash(0.92, 1.12);
         this.lastDragVx = 0;
@@ -767,7 +768,7 @@ export class Pet {
 
   private placeBubble() {
     const h = this.rig.head();
-    this.bubble.anchor(h.x, h.top, this.rig.height * 0.28);
+    this.bubble.anchor(h.x, h.top, this.rig.height * this.rig.figure.headR);
   }
 
   private syncHitRects() {

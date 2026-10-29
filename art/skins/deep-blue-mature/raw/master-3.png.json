@@ -1,0 +1,64 @@
+{
+  "timestamp_utc": "2026-10-29T03:13:14.486326+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2",
+      "prompt": "图1是男性角色\"深海蓝调\"的设定集（角色设计和身材比例以图1为准）。\n创建一张新图：把图1的角色画成一张桌面宠物用的单人全身立绘。\n比例：约八头身的成熟男性比例（不是 Q 版），身材修长挺拔，气质高冷、克制、禁欲。\n画风：日系动画赛璐璐上色，干净清晰的深色描线，线条比图1稍粗一点（缩小显示时也清楚），色块分明，高光简洁。\n角色设计（必须与图1一致）：深海蓝色、蓬松凌乱的短发，刘海略长、遮住一点眉眼，脑后有一束很长的蓝色发尾一直垂到腰下（从深海蓝渐变到浅蓝紫）；狭长的蓝紫色眼睛，眼神半垂、冷淡；戴黑色头戴式耳机，耳罩外侧有发蓝光的小鲸鱼标志和一圈青色光环，左侧有一根黑色麦克风；白衬衫、藏青色领带配银色领带夹；黑色马甲和黑色西装外套，外套袖子上有细细的青色发光线条，左胸领口别着一枚小蓝鲸胸针；白手套；黑色西裤；黑色亮面系带皮鞋，鞋底是蓝色的。没有鲸鱼尾巴、没有鳍状耳朵。\n姿势与表情：正面站立，站姿挺拔，双脚并拢，双手插在裤兜里，肩膀放松，头正对画面；表情冷淡平静，嘴巴闭着，眼睛看着正前方（看着观众）。\n只画一个角色，完整全身入镜，人物居中，真实透明背景，干净的主体边缘，无地面、无投影、无文字、无水印、无多视图。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue-mature/ref/upstream/character-sheet.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 58.657,
+  "usage": {
+    "input_tokens": 2028,
+    "input_tokens_details": {
+      "image_tokens": 1536,
+      "text_tokens": 492
+    },
+    "output_tokens": 1372,
+    "output_tokens_details": {
+      "image_tokens": 1372,
+      "text_tokens": 0
+    },
+    "total_tokens": 3400
+  },
+  "response_metadata": {
+    "created": 1793243570,
+    "size": "1024x1536",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue-mature/raw/master-3.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1024,
+        1536
+      ],
+      "alpha_min": 0,
+      "alpha_max": 254,
+      "transparent_pixels": 1185329,
+      "nonopaque_pixels": 1572864,
+      "fully_transparent_fraction": 0.753612,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2",
+      "reported_size": "1024x1536",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

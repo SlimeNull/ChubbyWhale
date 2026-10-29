@@ -1,0 +1,66 @@
+{
+  "timestamp_utc": "2026-10-29T03:37:35.515002+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2",
+      "prompt": "图1是男性角色\"深海蓝调·成熟\"的正面立绘母版（约八头身的成熟比例；角色设计、身材比例、画风都以图1为准）。\n图2是另一个 Q 版角色（大肥鱼）的一张姿势图，只用来参考动作、构图和道具，不要参考它的 Q 版比例、角色设计和表情。\n创建一张新图：画图1的角色摆出下面的姿势和表情。保持约八头身的成熟比例（不是 Q 版），头部大小与图1相同。\n角色设计、发型（凌乱的深海蓝短发、脑后很长的蓝色发尾）、黑色耳机和麦克风、白衬衫、藏青领带和银色领带夹、黑色马甲和西装外套（袖子上的青色发光线条、小蓝鲸胸针）、白手套、黑色西裤、黑色皮鞋（蓝色鞋底），以及画风、线条粗细、上色方式必须与图1一致。没有鲸鱼尾巴、没有鳍状耳朵。\n他是成熟、高冷、禁欲系的男性：举止沉稳克制，站姿挺拔，表情淡漠，几乎不露情绪，绝不会哭，不做幼稚夸张的动作；偶尔流露的情绪也只是一点点。\n姿势与表情：在空中抱着膝盖缩成一团（像一个球）：双腿屈起抱在胸前，眼睛紧闭，眉头紧皱，长发尾绕在身体周围，整体轮廓接近圆形。\n只画一个角色，完整全身入镜（除非姿势要求身体被画面边缘截断），真实透明背景，干净的主体边缘，无地面、无投影、无文字、无水印、无多视图。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue-mature/ref/master.png",
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/raw/fly_ball.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 77.04,
+  "usage": {
+    "input_tokens": 3485,
+    "input_tokens_details": {
+      "image_tokens": 3016,
+      "text_tokens": 469
+    },
+    "output_tokens": 1930,
+    "output_tokens_details": {
+      "image_tokens": 1930,
+      "text_tokens": 0
+    },
+    "total_tokens": 5415
+  },
+  "response_metadata": {
+    "created": 1793245049,
+    "size": "1216x1293",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue-mature/raw/fly_ball.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1216,
+        1293
+      ],
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 590967,
+      "nonopaque_pixels": 1571911,
+      "fully_transparent_fraction": 0.375864,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2",
+      "reported_size": "1216x1293",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求尺寸 1024x1536，实际尺寸 1216x1293。",
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

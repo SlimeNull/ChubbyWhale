@@ -1,0 +1,65 @@
+{
+  "timestamp_utc": "2026-10-29T03:25:54.479460+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2",
+      "prompt": "图1是角色\"大肥鱼·成熟\"的正面立绘母版（约七头身的成熟比例；角色设计、身材比例、画风都以图1为准）。\n图2是另一个 Q 版角色（大肥鱼）的一张姿势图，只用来参考动作、构图和道具，不要参考它的 Q 版比例、角色设计和表情。\n创建一张新图：画图1的角色摆出下面的姿势和表情。保持约七头身的成熟比例（不是 Q 版），头部大小与图1相同。\n角色设计、发型（深海蓝长卷发、呆毛、脑后的发辫）、白色荷叶边发箍和蓝色蝴蝶结、鲸鱼鳍形状的耳朵、女仆装（露肩、分离式泡泡袖、蓝宝石胸针和黑色领结、带小鲸鱼图案的白色围裙）、白色过膝长袜、深藏青色玛丽珍粗跟鞋、身后的鲸鱼尾巴，以及画风、线条粗细、上色方式必须与图1一致。\n她是温柔可靠的成熟大姐姐：举止优雅从容，表情柔和，情绪表达含蓄，不会哭，不做幼稚夸张的动作。动作和坐姿端庄，裙摆自然垂下，不走光，领口端庄。\n姿势与表情：被人揪住后领提起来悬在半空中（不要画出提着她的手）：身体从后领处向下吊着，双脚悬空并拢，双手按着裙摆，眼睛微微睁大，表情有点意外但不慌乱，长发和尾巴向下垂。\n只画一个角色，完整全身入镜（除非姿势要求身体被画面边缘截断），真实透明背景，干净的主体边缘，无地面、无投影、无文字、无水印、无多视图。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/mature/ref/master.png",
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/raw/dragged.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 207.78,
+  "usage": {
+    "input_tokens": 3512,
+    "input_tokens_details": {
+      "image_tokens": 3016,
+      "text_tokens": 496
+    },
+    "output_tokens": 1372,
+    "output_tokens_details": {
+      "image_tokens": 1372,
+      "text_tokens": 0
+    },
+    "total_tokens": 4884
+  },
+  "response_metadata": {
+    "created": 1793244213,
+    "size": "1024x1536",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/mature/raw/dragged.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1024,
+        1536
+      ],
+      "alpha_min": 0,
+      "alpha_max": 254,
+      "transparent_pixels": 882019,
+      "nonopaque_pixels": 1572864,
+      "fully_transparent_fraction": 0.560773,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2",
+      "reported_size": "1024x1536",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

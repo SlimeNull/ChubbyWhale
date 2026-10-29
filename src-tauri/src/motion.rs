@@ -606,15 +606,15 @@ pub async fn dock(window: WebviewWindow, motion: tauri::State<'_, Motion>, side:
     Ok(())
 }
 
-/// Resize the pet window to `factor` × the base size, keeping the feet (bottom
-/// center) where they are. Base size matches tauri.conf.json.
+/// Resize the pet window to `width` × `height` logical px, keeping the feet (bottom
+/// center) where they are. The size comes from the skin (its figure) and the
+/// chosen pet size; tauri.conf.json only has the standard skin's size for startup.
 #[tauri::command]
-pub async fn set_pet_scale(window: WebviewWindow, factor: f64) -> tauri::Result<()> {
-    const BASE: (f64, f64) = (332.0, 290.0);
+pub async fn set_pet_size(window: WebviewWindow, width: f64, height: f64) -> tauri::Result<()> {
     let k = scale(&window);
     let pos = window.outer_position()?;
     let size = window.outer_size()?;
-    let (w, h) = ((BASE.0 * factor * k).round(), (BASE.1 * factor * k).round());
+    let (w, h) = ((width * k).round(), (height * k).round());
     if (w - size.width as f64).abs() < 1.0 && (h - size.height as f64).abs() < 1.0 {
         return Ok(());
     }

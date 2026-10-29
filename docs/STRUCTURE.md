@@ -27,7 +27,7 @@
 │
 ├── src-tauri/                Rust 后端
 │   ├── Cargo.toml            依赖：tauri（tray-icon、macos-private-api）、tauri-plugin-dialog（导入 / 导出皮肤的文件对话框）、zip（皮肤包）、active-win-pos-rs、user-idle、reqwest；macOS 另有 objc2
-│   ├── tauri.conf.json       窗口 main：基准尺寸 332×290（刚好包住宠物和头顶特效，按大小设置缩放；宽度由各皮肤里最宽的移动帧决定：脚站在窗口正中，深海蓝调的跑步帧从脚往发尾那侧伸出约 163px；`build_sprites.py` 构建时会检查每个姿势都放得下），acceptFirstMouse（macOS 第一次点击就生效，不只是激活窗口）；窗口 bubble：240×150 对话气泡。都是透明、无边框、置顶、不进任务栏、不抢焦点；macOSPrivateApi=true。`bundle.resources` 把仓库的 `skins/` 打包成应用资源（内置皮肤；开发时 tauri-build 会复制到 `target/<profile>/skins/`）
+│   ├── tauri.conf.json       窗口 main：启动尺寸 332×290，即 Q 版皮肤的窗口（刚好包住宠物和头顶特效）。启动后前端按皮肤的 `figure.window` 和大小设置调用 `set_pet_size` 改成实际尺寸（见「皮肤」的 figure），acceptFirstMouse（macOS 第一次点击就生效，不只是激活窗口）；窗口 bubble：240×150 对话气泡。都是透明、无边框、置顶、不进任务栏、不抢焦点；macOSPrivateApi=true。`bundle.resources` 把仓库的 `skins/` 打包成应用资源（内置皮肤；开发时 tauri-build 会复制到 `target/<profile>/skins/`）
 │   ├── capabilities/default.json   main、settings、bubble、devpanel 窗口的权限：core:default、opener:default
 │   ├── icons/                应用图标，由 art/icon-source.png 经 `pnpm tauri icon` 生成
 │   │   └── tray/             托盘图标（由 art/tray/build-tray.mjs 生成）：tray-template.png（macOS 单色模板）、tray-color.png（Windows）
@@ -73,6 +73,8 @@
 │       └── settings.css
 │
 ├── skins/deep-blue/          内置皮肤「深海蓝调」：高冷的男版，结构同下；lines / opinions / prompts / voice 都是自己的（prompts 只写了人设、规则和部分任务，其余用标准皮肤的）
+├── skins/mature/             内置皮肤「大肥鱼·成熟」：约七头身的温柔大姐姐，结构同下；sprites/manifest.json 有自己的 figure（更高的显示高度和窗口）
+├── skins/deep-blue-mature/   内置皮肤「深海蓝调·成熟」：约八头身的高冷禁欲系男版，结构同下，也有自己的 figure
 ├── skins/standard/           内置皮肤「标准大肥鱼」，也是其他皮肤缺内容时的后备（格式见「皮肤」一节）
 │   ├── skin.json             元数据：format、id、name、author、version、description、license
 │   ├── lines.json            离线台词：{类别: {emotion, lines[]}}，75 类
@@ -81,14 +83,16 @@
 │   ├── voice.json            合成音参数和各情绪的音节短语（一个音节一行，方便手改）；clips 由 build_voice.py 写入
 │   ├── voice/                （可选）录音片段 <emotion>-<n>.mp3，由 art/voice/build_voice.py 生成
 │   └── sprites/              立绘（构建产物，由 art/build_sprites.py 生成，不要手改）
-│       ├── manifest.json     { motion: {walkStride, runStride}, poses: {name: {w,h,ax}}, variants: {...} }，ax 是头部中心的横向比例，motion 是这套图的走跑步幅；它列出的就是每个皮肤必须有的图
+│       ├── manifest.json     { motion: {walkStride, runStride}, figure: {height, window, headY, headR, hang}, poses: {name: {w,h,ax}}, variants: {...} }，ax 是头部中心的横向比例，motion 是这套图的走跑步幅，figure 是身体比例（见「皮肤」）；它列出的 poses / variants 就是每个皮肤必须有的图
 │       ├── <pose>.webp       41 个姿势：13 个基础姿势、10 个反应变体（giggle、pout、proud、dragged_*、fly_*、hurt_*）、5 帧移动循环（walk_a / walk_pass / walk_b、run_a / run_b，面朝左）、4 个探头（peek、peek_wave、peek_smile、peek_sleepy；扒边线是图片右边缘）、9 个活动帧（eat / eat_b、game / game_b、read、tea、music、phone、draw）
 │       └── idle_*.webp       idle 的差分：眨眼 idle_blink、说话 idle_talk、视线 idle_gaze_{l,r,u,d,ul,ur,dl,dr}（八个方向）
 │
 └── art/                      美术源文件和流水线（许可 CC BY-NC-SA 4.0，见 art/LICENSE.md）
-    ├── build_sprites.py      `python art/build_sprites.py [皮肤 id]`：raw → skins/<id>/sprites。每个皮肤的配置在文件末尾的 SKINS（素材目录、POSES 和 scale、眼睛 / 嘴的位置、视线选图、走跑步幅）。处理：alpha 清理、裁切（`crop_like` 让同一组帧共用裁剪框和锚点；`grip` 在探头图的身体切线处裁掉）、缩放（SCALE 和逐姿势 scale）、idle 差分合成（IDLE_VARIANTS）、视线差分按 GAZE_PICKS 选取左右眼来源、算 ax、输出 webp，最后检查每个姿势都放得进宠物窗口（放不下会打印 WARNING）
-    ├── measure_heads.py      `[--skin <id>] [姿势...]`：测量每个姿势的头部相对 idle 的大小（模板匹配），用来设定 POSES 的 scale
+    ├── build_sprites.py      `python art/build_sprites.py [皮肤 id]`：raw → skins/<id>/sprites。每个皮肤的配置在文件末尾的 SKINS（素材目录、POSES 和 scale、眼睛 / 嘴的位置、视线选图、走跑步幅、figure、算 ax 用的头部高度比例 head_rows）。处理：alpha 清理、裁切（`crop_like` 让同一组帧共用裁剪框和锚点；`grip` 在探头图的身体切线处裁掉）、缩放（SCALE 和逐姿势 scale）、idle 差分合成（IDLE_VARIANTS）、视线差分按 GAZE_PICKS 选取左右眼来源、算 ax、输出 webp，最后检查每个姿势都放得进宠物窗口（放不下会打印 WARNING）
+    ├── measure_heads.py      `[--skin <id>] [姿势...]`：测量每个姿势的头部相对 idle 的大小（模板匹配），用来设定 POSES 的 scale；成熟皮肤的头只占 idle 顶部约 15%，模板区域在 SKIN_REGIONS 里单独设
     ├── skins/deep-blue/      「深海蓝调」的美术源文件，结构和 art/ 下标准皮肤的相同：prompts/、raw/（含 raw/gaze/）、ref/（master.png、蒙版、look/ 视线参考图、upstream/character-sheet.png 设定集）
+    ├── skins/mature/         「大肥鱼·成熟」的美术源文件，结构同上；upstream/character-sheet.png 是鲸鱼娘开源资产库的成熟比例设定图；look/ 是胸像特写（全身图里眼睛太小，没法比）
+    ├── skins/deep-blue-mature/  「深海蓝调·成熟」的美术源文件，结构同上（设定集和深海蓝调相同）
     ├── requirements.txt      Pillow、numpy、requests；opencv-python-headless（只有 measure_heads.py 用）
     ├── prompts/              每个姿势和差分的生图提示词（00_master、各姿势、blink、talk）
     ├── raw/                  生图原图和 .png.json 生成报告；raw/gaze/ 是视线候选（<方向>-N：双眼编辑；eye_left_/eye_right_<方向>-N：单眼编辑）；_v1_hoodie/ 是被否决的初版，已在 .gitignore 中
@@ -136,7 +140,7 @@
 - 待机动作每 8～18 秒按权重抽一个：look、curious、yawn（深夜权重更高）、happy 哼歌（hum 声音）、giggle 偷笑、wander 移动、watch 坐下、bob 漂浮，以及 `ACTIVITIES` 里的日常活动（同一活动不会连续出现）。活动可以是单张姿势或多帧循环，带周期性特效、开始和结束时的声音、开头一句台词（有概率）、左右摇摆。
 - **视线**（gaze.ts）：只在地面、站着休息的 idle 姿势、且没在说话时生效。回到休息后先看前方 2.5～4.5 秒（但如果正在跟随一个还在动的鼠标，就继续跟随）；之后每 6～15 秒随机切换模式：front（看前方）/ around（每 2～4.5 秒看一个方向，经常回到正中）/ follow（一直跟着平滑后的鼠标：按鼠标相对头部的角度分成八个 45° 扇区选方向，越过扇区边界 8° 才换，离脸 50px 以内看前方（已经在看别处时为 30px），每个方向至少停留 0.25 秒；身体倾斜随鼠标的水平位置连续变化；鼠标在动时，她不会去做别的待机动作，模式也大概率保持跟随）。调试面板可以固定某个模式（`force`），固定后回到休息也不会被重置。换方向时眨一下眼。方向用 idle_gaze_* 差分表示，并配合身体倾斜（水平眼神幅度有限，倾斜帮助表达）；眨眼和说话差分优先于视线。光标位置来自 Rust 的 `pet-cursor` 事件。
 - **贴边时**（`docked`）：休息姿势变成 peek。待机改为抽 `PEEK_MOTIONS`：挥手、偷笑、缩回去再探出来（tuck：屏幕边缘落到她身体里 75% 宽度的位置，只露一小条）、伸头张望（lean-out：只有头往外歪，手不动）、歪头、问号、打瞌睡（深夜权重更高）。说话时只换成 peek / peek_smile，不切换全身姿势；被戳时用 `pokePeek` 反应；睡觉用 peek_sleepy；不会走路。只要被拎起，就解除贴边。
-- **wander 移动**：70% 走路（walk_a → walk_pass → walk_b → walk_pass，4fps，每秒 2 步），30% 小跑（run_a ↔ run_b，4fps，每秒 4 步）。移动速度 = 步幅 × 步频 × 大小系数，步幅取立绘中两脚间距（按 230px 身高计；标准大肥鱼走路 83px、跑步 105px，深海蓝调 97px、128px），写在皮肤的 sprites/manifest.json 的 `motion` 里（来自 `build_sprites.py` 的 SKINS 配置），`rig.motion` 读取，这样着地的脚相对地面不动，不会滑步。步幅和走跑帧的 scale 成正比：只改 scale 时按比例换算；换了移动立绘就要重新测量。`playCycle` 的 `phase` 让身体在脚着地时（走路帧 A、B 的中间）最低，在收腿帧时最高；`onStep` 在每次着地时触发脚步声。移动图朝左，向右走时水平翻转。出发前用 `rig.spanX()` 算出这组走跑帧（按行进方向翻转后）的横向范围，左右各留 4px，作为 `glide_by` 的 `span`，保证整张图都留在屏幕里。被屏幕边缘挡住时改为朝那个方向张望。被拎起、睡觉或其他动作打断时，`stopWalking()` 会停掉帧循环（脚步声也随之停止）。
+- **wander 移动**：70% 走路（walk_a → walk_pass → walk_b → walk_pass，4fps，每秒 2 步），30% 小跑（run_a ↔ run_b，4fps，每秒 4 步）。移动速度 = 步幅 × 步频 × 大小系数，步幅取立绘中两脚间距（按 idle 高 230px 计，所以大小系数是 `rig.height / 230`；标准大肥鱼走路 83px、跑步 105px，深海蓝调 97px、128px，大肥鱼·成熟 67px、94px，深海蓝调·成熟 73px、57px），写在皮肤的 sprites/manifest.json 的 `motion` 里（来自 `build_sprites.py` 的 SKINS 配置），`rig.motion` 读取，这样着地的脚相对地面不动，不会滑步。步幅和走跑帧的 scale 成正比：只改 scale 时按比例换算；换了移动立绘就要重新测量。`playCycle` 的 `phase` 让身体在脚着地时（走路帧 A、B 的中间）最低，在收腿帧时最高；`onStep` 在每次着地时触发脚步声。移动图朝左，向右走时水平翻转。出发前用 `rig.spanX()` 算出这组走跑帧（按行进方向翻转后）的横向范围，左右各留 4px，作为 `glide_by` 的 `span`，保证整张图都留在屏幕里。被屏幕边缘挡住时改为朝那个方向张望。被拎起、睡觉或其他动作打断时，`stopWalking()` 会停掉帧循环（脚步声也随之停止）。
 - 眨眼和说话只在 idle 姿势上生效，通过切换差分贴图实现。
 - **反应变体**（`pet.ts` 的 `REACTIONS`）：每种情况有多个反应，每个反应包含姿势、音效 / 声音、台词（带概率）、特效、跳跃或挤压，以及悬挂松紧或翻滚。挑选时不会和上一次相同，并跳过没有贴图的姿势。
   - `poke`：shy / giggle / shocked / happy / curious；4 秒内戳 4 次以上触发 `pokeSpam`：pout / shocked
@@ -144,7 +148,7 @@
   - `fly`：fly / fly_happy / fly_ball（翻滚）
   - `hurt`（`impact > 1100`）：hurt（加晕眩星星）/ hurt_cry / hurt_dizzy；`land`（`impact > 500`）：proud / happy / cheer；更轻的落地只播放挤压动画和轻落地音效
 - **声音**：撞墙播放 boing（按 impact 调整强度，间隔至少 90ms）；拖起播放 pickup，丢出播放 whoosh，落地播放 thud / softland，戳播放 pop，放下播放 puff，走路播放 step。`say()` 按 emotion 播放对应的声音（`EMOTION_VOICE`），同一时间只播一段。AudioContext 在第一次 pointerdown 时解锁。
-- **大小**：`small / medium / large` 对应缩放 0.55 / 0.75 / 1（1 表示身高 230px）。`set_pet_scale` 缩放窗口，保持脚底中点不动；窗口 resize 后前端重新上报身体框。
+- **大小**：`small / medium / large` 对应缩放 0.55 / 0.75 / 1。1 表示 idle 高度等于皮肤的 `figure.height`（Q 版皮肤 230px，成熟皮肤更高），窗口为 `figure.window` × 缩放。`set_pet_size` 改窗口大小，保持脚底中点不动；窗口 resize 后前端重新上报身体框。
 - Director：用户空闲超过 300 秒后入睡，有输入后醒来；网页停留超过 25 秒后对识别到的话题发表评论（同一话题冷却 40 分钟）；各类活动的停留阈值和冷却见 `KIND_RULES`；全局发言间隔见 `REMARK_GAP`（quiet 600s / normal 200s / chatty 75s）。
 - 话题匹配只在 browser / video / game / other 类活动下进行。代码、终端、文档窗口的标题是文件名和项目名，不参与匹配。
 
@@ -168,7 +172,7 @@
 | `fall` | motion.rs | async |
 | `glide_by` | motion.rs | async。`(dx, speed px/s, linear, span?: [left, right])`，返回被屏幕边缘截断后的实际 dx |
 | `dock` | motion.rs | async。`(side, edgeX, top, bottom)`：滑动窗口，让窗口内 x=edgeX 落在屏幕左 / 右边缘，同时保证 top..bottom 这一段在屏幕内 |
-| `set_pet_scale` | motion.rs | async。窗口缩放到基准尺寸 × factor，保持脚底中点不动 |
+| `set_pet_size` | motion.rs | async。`width, height`（逻辑像素，由皮肤的 figure.window × 大小算出），保持脚底中点不动 |
 | `debug_throw` | motion.rs | 仅 DEV 生效：以给定速度抛出 |
 | `debug_probe_top` / `debug_windows` | motion.rs | 仅 DEV 生效：检查窗口能否越过菜单栏；移动宠物窗口并返回宠物窗口、气泡窗口和工作区（左、上、右）的坐标 |
 | `store_load` / `store_save` | store.rs | 名称只能是 `settings`、`memory-<皮肤 id>`，或 `memory`（皮肤出现之前的旧记忆，只用于迁移） |
@@ -223,8 +227,9 @@
 | `prompts.json` | `persona`；`rules`（代码会在末尾加上 JSON 回复格式那条）；`memory`、`situation`、`tasks` 里的各段模板，占位符见标准皮肤 | 按字段补齐（对象逐个键合并，字符串和数组整体替换） |
 | `voice.json` | `pitch`、`pitchJitter`、`tempo`、`tempoJitter`、`brightness`（低通截止）、`rolloff`（谐波衰减）、`vibratoRate`、`vibratoDepth`、`breath`、`formants`、`formantGain`、`formantBandwidth`、`humScale`、`clips`（情绪 → voice/ 里的文件）、`phrases`（情绪 → 多个短语，每个短语是音节数组 `{v, d, p, c?, a?, vib?, breath?, gap?}`） | 按字段补齐；`clips` 只用皮肤自己的（文件在它自己的 voice/ 里） |
 
-- **内置皮肤**：「标准大肥鱼」（standard）和「深海蓝调」（deep-blue，高冷男版）。skins.rs 的单元测试会检查仓库里每个内置皮肤都能通过导入校验。
+- **内置皮肤**：「标准大肥鱼」（standard）、「深海蓝调」（deep-blue，高冷男版）、「大肥鱼·成熟」（mature，约七头身的温柔大姐姐）、「深海蓝调·成熟」（deep-blue-mature，约八头身的高冷禁欲系男版）。skins.rs 的单元测试会检查仓库里每个内置皮肤都能通过导入校验。
 - **存放位置**：内置皮肤是应用资源 `skins/<id>/`（仓库里的 `skins/`）；导入的皮肤在数据目录的 `skins/<id>/`。导入的 id 不能和内置皮肤相同，所以按 id 查找时不会有歧义。
+- **身体比例（figure）**：写在 `sprites/manifest.json` 的 `figure`，由 `build_sprites.py` 从 SKINS 配置写入，缺的字段用 Q 版默认值（`src/skin.ts` 的 DEFAULT_FIGURE）。它描述这套图本身，所以不从标准皮肤继承。`height`：large 大小时 idle 的显示高度（默认 230；七八头身的角色同样身高时脸太小，大肥鱼·成熟 300、深海蓝调·成熟 320）；`window`：large 大小时的宠物窗口（默认 332×290，要包住最宽的姿势和头顶特效，`build_sprites.py` 会检查）；`headY`：头部中心在当前姿势高度中的比例（特效、视线用，默认 0.2）；`headR`：头半宽占 `height` 的比例（气泡锚点，默认 0.28）；`hang`：拖拽时手揪住的后领在姿势高度中的比例（默认 0.3）。
 - **读取**：前端只通过 `skin_file` 拿字节，内置和导入的皮肤、开发版和正式版走同一条路。`loadSkin(id)` 先读标准皮肤，再读这个皮肤，按上表合并；皮肤不存在（比如被删了）时回退到标准皮肤。
 - **切换**：设置窗口改 `settings.skin` 后发 `settings-changed`，宠物窗口发现皮肤变了就整页重新加载。所有模块（贴图、台词、声音、提示词、记忆）都只在启动时读一次皮肤。
 - **记忆**：每个皮肤一份（`memory-<id>.json`），不同皮肤是不同的角色，喜好和说过的话互不影响。删除皮肤不删记忆，重新导入后还能接上。
@@ -254,6 +259,13 @@
 5. 在 `build_sprites.py` 的 SKINS 里加配置，构建，用 `measure_heads.py --skin <id>` 测头部大小。新角色的头发和标准皮肤差别大时，模板可能测不准（会标 UNRELIABLE，或两块模板结果差很多），要换别的办法测：只取脸部核心区域、x / y 分开缩放的模板（侧脸时宽度被压缩），或者两眼间距。
 6. 测走跑步幅（两只脚的中心距离，按 230px 身高换算），写进 SKINS 配置。
 7. 写 `skins/<id>/` 的 skin.json、lines.json、opinions.json、prompts.json、voice.json，然后跑 `cargo test --lib skins` 和 `VITE_PET_SKIN=<id>` 的各项演示测试（1、dock、walk、features）。
+
+**七八头身的成熟皮肤**（大肥鱼·成熟、深海蓝调·成熟）另外要注意：
+
+- 母版直接以成熟比例的设定图为参考生成，不用 Q 版母版；各姿势只用文字描述（只有探头、走跑、吃饭、打游戏、拖拽和抱膝翻滚另外带标准皮肤的同名图作构图参考，并写明不要参考它的 Q 版比例）。成年人不平躺：睡觉、摔倒、看书画画都改成坐姿或跪姿，既符合人设，也让最宽的姿势放得进窗口。
+- 在 SKINS 里写 `figure`（显示高度、窗口、头部中心、头半宽、后领位置，在母版上量）和 `head_rows`（算 ax 用的头部高度比例）。窗口按 `build_sprites.py` 打印的最宽 / 最高姿势定，左右各留 2px，头顶留约 40px 特效空间。
+- 头部大小：measure_heads.py 测不准（头在高个子里只占一小块，坐姿和探头的头又被画到约 1.4～1.9 倍，超出它的搜索范围）。做法是在 raw 原图上量：站姿用身高比（同一比例下头和身高成正比）；其他姿势用母版的脸和发箍 / 耳机两块模板在 0.8～2.6 倍范围内匹配，两块结果不一致时用两眼间距核对、取平均；侧面的跑步帧和 walk_a 的侧脸比。
+- 视线参考图用胸像特写（全身图里眼睛只有几个像素，没法比）。眼睛和嘴的蒙版范围要比贴回去的椭圆大一圈。
 
 ## 不可破坏的约定
 

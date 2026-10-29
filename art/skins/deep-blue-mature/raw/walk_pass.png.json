@@ -1,0 +1,64 @@
+{
+  "timestamp_utc": "2026-10-29T03:27:50.620674+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2.5-sunburst",
+      "prompt": "这是一次局部修图。图1是编辑目标：成熟的男性角色侧身朝画面左侧走路，双手插在裤兜里。\n只修改蒙版透明区域（西装下摆下方的双腿和双脚）：改成走路的过渡帧——两条腿几乎并拢在身体正下方，一只脚踩在地上支撑身体，另一只脚刚离地、在支撑脚旁边向前摆动，两只脚的距离很近。\n必须保留：黑色西裤和黑色亮面皮鞋（蓝色鞋底）的样式和颜色，画风、线条、上色、人物位置和大小完全不变；蒙版外的头部、头发、上身和手臂保持原样；背景保持真实透明。\n避免：改动蒙版外的内容、添加文字或水印。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue-mature/ref/walk_a.png"
+    ],
+    "mask": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue-mature/ref/mask_walk_a_legs.png"
+  },
+  "elapsed_seconds": 34.825,
+  "usage": {
+    "input_tokens": 1751,
+    "input_tokens_details": {
+      "image_tokens": 1536,
+      "text_tokens": 215
+    },
+    "output_tokens": 1372,
+    "output_tokens_details": {
+      "image_tokens": 1372,
+      "text_tokens": 0
+    },
+    "total_tokens": 3123
+  },
+  "response_metadata": {
+    "created": 1793244468,
+    "size": "1024x1536",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue-mature/raw/walk_pass.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1024,
+        1536
+      ],
+      "alpha_min": 0,
+      "alpha_max": 254,
+      "transparent_pixels": 1091481,
+      "nonopaque_pixels": 1572864,
+      "fully_transparent_fraction": 0.693945,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2.5-sunburst",
+      "reported_size": "1024x1536",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

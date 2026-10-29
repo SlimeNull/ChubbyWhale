@@ -1,0 +1,302 @@
+{
+  "poke": {
+    "emotion": "shy",
+    "lines": ["……有事？", "说。", "手很闲吗。", "我在听。", "嗯。", "别闹。"]
+  },
+  "pokeSpam": {
+    "emotion": "shocked",
+    "lines": ["够了。", "你的时间，不该花在这里。", "……去做正事。"]
+  },
+  "pokeAwake": {
+    "emotion": "shocked",
+    "lines": ["没睡。", "只是闭眼。", "什么事。"]
+  },
+  "dragStart": {
+    "emotion": "shocked",
+    "lines": ["放手。", "……你要做什么。", "领子会皱。", "适可而止。"]
+  },
+  "throw": {
+    "emotion": "shocked",
+    "lines": ["……", "啧。", "幼稚。"]
+  },
+  "throwAgain": {
+    "emotion": "shocked",
+    "lines": ["第 {n} 次。", "{n} 次了。我不会再说第二遍。"]
+  },
+  "hurt": {
+    "emotion": "hurt",
+    "lines": ["……无碍。", "不疼。", "地面而已。", "刚才的事，忘掉。"]
+  },
+  "hurtAfter": {
+    "emotion": "shy",
+    "lines": ["下不为例。", "……算了。", "别那样看着我。"]
+  },
+  "softLanding": {
+    "emotion": "neutral",
+    "lines": ["嗯。", "落地。", "……还行。"]
+  },
+  "drop": {
+    "emotion": "neutral",
+    "lines": ["就这里。", "可以。", "嗯。"]
+  },
+  "pokeGiggle": {
+    "emotion": "shy",
+    "lines": ["……咳。", "没笑。", "你看错了。"]
+  },
+  "pokeSurprised": {
+    "emotion": "shocked",
+    "lines": ["……突然。", "下次出声。", "嗯？"]
+  },
+  "pokeHappy": {
+    "emotion": "neutral",
+    "lines": ["找我？", "我在。", "说吧。"]
+  },
+  "pokeCurious": {
+    "emotion": "curious",
+    "lines": ["怎么了。", "需要帮忙？", "嗯？"]
+  },
+  "dragHappy": {
+    "emotion": "neutral",
+    "lines": ["视野不错。", "……随你。", "别晃。"]
+  },
+  "dragGrumpy": {
+    "emotion": "shy",
+    "lines": ["放我下来。", "我不是行李。", "……无聊。"]
+  },
+  "dragLimp": {
+    "emotion": "neutral",
+    "lines": ["……", "随便你。", "我不想动。"]
+  },
+  "flyHappy": {
+    "emotion": "neutral",
+    "lines": ["……风很大。", "也不坏。"]
+  },
+  "flyBall": {
+    "emotion": "shocked",
+    "lines": ["……落地再说。", "世界在转。"]
+  },
+  "hurtCry": {
+    "emotion": "hurt",
+    "lines": ["……无碍。", "拍掉灰就好。", "这种程度，不值一提。"]
+  },
+  "hurtDizzy": {
+    "emotion": "hurt",
+    "lines": ["……让我缓一下。", "头有点沉。", "等我三秒。"]
+  },
+  "landProud": {
+    "emotion": "neutral",
+    "lines": ["看清楚了吗。", "这种程度而已。", "嗯。"]
+  },
+  "actEat": {
+    "emotion": "neutral",
+    "lines": ["吃饭时间。", "……味道还行。", "你也该吃了。"]
+  },
+  "actGame": {
+    "emotion": "watch",
+    "lines": ["这个 Boss，有点意思。", "安静。", "赢了。"]
+  },
+  "actRead": {
+    "emotion": "watch",
+    "lines": ["……", "这本不错。"]
+  },
+  "actTea": {
+    "emotion": "neutral",
+    "lines": ["冰美式，不加糖。", "提神。"]
+  },
+  "actMusic": {
+    "emotion": "neutral",
+    "lines": ["……这段编曲不错。", "安静地听一会儿。"]
+  },
+  "actPhone": {
+    "emotion": "curious",
+    "lines": ["看点资料。", "……鲸鱼纪录片。别笑。"]
+  },
+  "actDraw": {
+    "emotion": "watch",
+    "lines": ["随手画画。", "……像吗。"]
+  },
+  "peekIn": {
+    "emotion": "neutral",
+    "lines": ["我在。", "继续，不用管我。", "……看着你。"]
+  },
+  "pokePeek": {
+    "emotion": "shy",
+    "lines": ["……被发现了。", "路过而已。", "看什么。"]
+  },
+  "wake": {
+    "emotion": "shocked",
+    "lines": ["回来了。", "嗯。欢迎回来。", "……没睡。"]
+  },
+  "yawn": {
+    "emotion": "sleepy",
+    "lines": ["……有点困。", "该休息了。"]
+  },
+  "morning": {
+    "emotion": "neutral",
+    "lines": ["早。", "早上好。吃早饭。"]
+  },
+  "noon": {
+    "emotion": "neutral",
+    "lines": ["中午了。去吃饭。", "午休十分钟，下午更清醒。"]
+  },
+  "afternoon": {
+    "emotion": "neutral",
+    "lines": ["下午了。喝杯咖啡？", "别松懈。"]
+  },
+  "evening": {
+    "emotion": "neutral",
+    "lines": ["晚上好。今天辛苦了。", "……今天怎么样。"]
+  },
+  "lateNight": {
+    "emotion": "sleepy",
+    "lines": ["很晚了。去睡。", "熬夜，不划算。", "剩下的，明天做。"]
+  },
+  "code": {
+    "emotion": "watch",
+    "lines": ["专心。", "……写得不错。", "命名认真一点。", "有问题，先看日志。", "继续。"]
+  },
+  "codeFile": {
+    "emotion": "curious",
+    "lines": ["{file}。结构可以再清楚些。", "改 {file}，别忘了测试。", "{file} 完成了吗。"]
+  },
+  "codeLong": {
+    "emotion": "neutral",
+    "lines": ["{mins} 分钟了。起来走走。", "写了很久了。喝水。"]
+  },
+  "terminal": {
+    "emotion": "curious",
+    "lines": ["执行前，再看一眼。", "rm -rf 之前，想清楚。", "命令行。……还算熟练。"]
+  },
+  "doc": {
+    "emotion": "watch",
+    "lines": ["写文档。好习惯。", "写清楚，以后的你会感谢现在的你。", "累了就停。", "快写完了。"]
+  },
+  "design": {
+    "emotion": "curious",
+    "lines": ["配色还可以。", "留白再多一点。"]
+  },
+  "video": {
+    "emotion": "neutral",
+    "lines": ["在看什么。", "……休息时间？", "看完回来。"]
+  },
+  "chat": {
+    "emotion": "curious",
+    "lines": ["在和谁聊。", "别聊太久。"]
+  },
+  "music": {
+    "emotion": "neutral",
+    "lines": ["品味不错。", "这首，我也听过。"]
+  },
+  "mail": {
+    "emotion": "watch",
+    "lines": ["一封一封来。", "不重要的，先放着。"]
+  },
+  "game": {
+    "emotion": "neutral",
+    "lines": ["在玩游戏。……别输。", "赢了再告诉我。"]
+  },
+  "browse": {
+    "emotion": "curious",
+    "lines": ["在找什么。", "别看太久。"]
+  },
+  "topic_love": {
+    "emotion": "watch",
+    "lines": ["{label}。……我很喜欢。", "{label}。品味不错。", "{label}，我玩过很多遍。"]
+  },
+  "topic_like": {
+    "emotion": "neutral",
+    "lines": ["{label}，还不错。", "{label}。我也看过。"]
+  },
+  "topic_meh": {
+    "emotion": "curious",
+    "lines": ["{label}……一般。", "{label}？你喜欢这个。"]
+  },
+  "topic_dislike": {
+    "emotion": "shy",
+    "lines": ["{label}。不是我的类型。", "{label}……随你。"]
+  },
+  "topic_love_again": {
+    "emotion": "watch",
+    "lines": ["{label}。我说过，我喜欢。", "又是{label}。今天也要玩？"]
+  },
+  "topic_like_again": {
+    "emotion": "neutral",
+    "lines": ["{label}，还是不错。", "又在看{label}。"]
+  },
+  "topic_meh_again": {
+    "emotion": "curious",
+    "lines": ["你对{label}很执着。", "{label}……还是一般。"]
+  },
+  "topic_dislike_again": {
+    "emotion": "shy",
+    "lines": ["{label}。我的看法没变。", "{label}，交给你了。"]
+  },
+  "product": {
+    "emotion": "shocked",
+    "lines": ["{label}。不便宜。", "{label}，真的需要吗。", "想清楚再买。"]
+  },
+  "productPrice": {
+    "emotion": "shocked",
+    "lines": ["{label}，{price}。冷静。", "{price}。等打折。"]
+  },
+  "shop": {
+    "emotion": "curious",
+    "lines": ["又在购物。", "需要的才买。"]
+  },
+  "ai_deepseek": {
+    "emotion": "neutral",
+    "lines": ["……我出生的地方。", "DeepSeek。回来看看也好。", "在和我的本体说话？"]
+  },
+  "ai_other": {
+    "emotion": "shy",
+    "lines": ["……随你用哪个。", "它能做的，我也能。", "嗯。"]
+  },
+  "site_github": {
+    "emotion": "watch",
+    "lines": ["GitHub。顺手点个 star。", "读别人的代码，是好习惯。"]
+  },
+  "site_stackoverflow": {
+    "emotion": "watch",
+    "lines": ["遇到问题了。先冷静。", "看第二个回答。"]
+  },
+  "site_wiki": {
+    "emotion": "curious",
+    "lines": ["查资料。", "……这个我也想知道。"]
+  },
+  "site_zhihu": {
+    "emotion": "curious",
+    "lines": ["看看就好。", "别全信。"]
+  },
+  "site_social": {
+    "emotion": "neutral",
+    "lines": ["刷一会儿就够了。", "别被信息流吞掉。"]
+  },
+  "site_news": {
+    "emotion": "curious",
+    "lines": ["今天有什么新闻。"]
+  },
+  "site_map": {
+    "emotion": "curious",
+    "lines": ["要出门？带伞。"]
+  },
+  "site_steam": {
+    "emotion": "neutral",
+    "lines": ["Steam。愿望单又长了。", "打折再买。"]
+  },
+  "site_ocean": {
+    "emotion": "watch",
+    "lines": ["……深海。安静的地方。", "很久没回去了。"]
+  },
+  "anime_anime": {
+    "emotion": "neutral",
+    "lines": ["在看番。……这部我看过。", "看完一集，回来。"]
+  },
+  "chatter": {
+    "emotion": "neutral",
+    "lines": ["……", "……谁给我起的名字，大肥鱼。", "抹香鲸睡觉的时候是竖着的。……随口一说。", "眼睛累了，看看远处。", "我一直在。", "安静一点，也挺好。", "深海里，其实很亮。"]
+  },
+  "missYou": {
+    "emotion": "shy",
+    "lines": ["……很久没理我了。", "忙完了？……只是问问。"]
+  }
+}

@@ -26,6 +26,12 @@ ROOT = Path(__file__).resolve().parent.parent
 SPRITES = ROOT / "skins" / "standard" / "sprites"  # --skin picks another skin
 # Template regions in idle, as fractions of the sprite: (top, bottom, left, right).
 REGIONS = {"head": (0.10, 0.44, 0.16, 0.74), "band": (0.04, 0.30, 0.05, 0.86)}
+# Tall (7–8 heads) skins: the head is only the top ~15% of idle. "head" is the face
+# and bangs, "band" the headdress / headset with the ears.
+SKIN_REGIONS = {
+    "mature": {"head": (0.06, 0.19, 0.25, 0.55), "band": (0.008, 0.15, 0.14, 0.67)},
+    "deep-blue-mature": {"head": (0.034, 0.133, 0.347, 0.653), "band": (0.007, 0.146, 0.286, 0.776)},
+}
 SCALES = np.arange(0.6, 1.71, 0.03)
 ANGLES = range(-24, 25, 6)
 
@@ -67,10 +73,11 @@ def match(img: np.ndarray, tmpl: np.ndarray) -> tuple[float, float]:
 
 
 def main():
-    global SPRITES
+    global SPRITES, REGIONS
     args = sys.argv[1:]
     if args[:1] == ["--skin"]:
         SPRITES = ROOT / "skins" / args[1] / "sprites"
+        REGIONS = SKIN_REGIONS.get(args[1], REGIONS)
         args = args[2:]
     idle = load("idle")
     h, w = idle.shape[:2]

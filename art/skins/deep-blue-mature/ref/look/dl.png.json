@@ -1,0 +1,66 @@
+{
+  "timestamp_utc": "2026-10-29T03:42:47.253902+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2",
+      "prompt": "图1是角色男性角色\"深海蓝调·成熟\"的正面立绘母版，图2是他的设定集（提供细节参考，不要求照搬其构图）。创建一张新图：画同一个角色的胸像特写（头部和肩膀，脸占画面的大部分），角色设计、画风、线条、上色方式都与图1一致。\n姿势与表情：与图1相同的正面朝向和冷淡平静的表情，头部保持正对画面不转动，只有视线改变：自然地看向画面左下方。画法像专业画师画的自然眼神，两只眼睛看向同一个点。\n只画一个角色，真实透明背景，干净的主体边缘，无文字、无水印、无多视图。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue-mature/ref/master.png",
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue-mature/ref/upstream/character-sheet.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 50.975,
+  "usage": {
+    "input_tokens": 3287,
+    "input_tokens_details": {
+      "image_tokens": 3072,
+      "text_tokens": 215
+    },
+    "output_tokens": 1887,
+    "output_tokens_details": {
+      "image_tokens": 1887,
+      "text_tokens": 0
+    },
+    "total_tokens": 5174
+  },
+  "response_metadata": {
+    "created": 1793245360,
+    "size": "1199x1312",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue-mature/ref/look/dl.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1199,
+        1312
+      ],
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 506040,
+      "nonopaque_pixels": 1573041,
+      "fully_transparent_fraction": 0.321686,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2",
+      "reported_size": "1199x1312",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求尺寸 1024x1536，实际尺寸 1199x1312。",
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

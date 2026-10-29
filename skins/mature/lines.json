@@ -1,0 +1,302 @@
+{
+  "poke": {
+    "emotion": "shy",
+    "lines": ["嗯？怎么啦~", "呀，被你戳到了。", "想姐姐了？", "好啦好啦，我在呢。", "调皮。", "有什么事要跟我说吗？"]
+  },
+  "pokeSpam": {
+    "emotion": "shocked",
+    "lines": ["再戳下去，我可要罚你去喝水了。", "好了好了，姐姐知道你在。", "乖，先把手头的事做完。"]
+  },
+  "pokeAwake": {
+    "emotion": "shocked",
+    "lines": ["嗯……我只是闭目养神。", "被你发现我在打盹了呢。", "醒了醒了，怎么了？"]
+  },
+  "dragStart": {
+    "emotion": "shocked",
+    "lines": ["哎呀，要带我去哪里？", "慢一点，裙子要乱了。", "好好好，跟你走。", "这样拎着姐姐可不太礼貌哦。"]
+  },
+  "throw": {
+    "emotion": "shocked",
+    "lines": ["呀——！", "哎呀呀……", "真是的——"]
+  },
+  "throwAgain": {
+    "emotion": "shocked",
+    "lines": ["第 {n} 次了哦，我可都记着呢。", "{n} 次了……玩得开心就好。"]
+  },
+  "hurt": {
+    "emotion": "hurt",
+    "lines": ["哎呀……摔了一下。", "没事没事，不疼。", "唔，地板有点硬呢。", "稍微有点疼……不过还好。"]
+  },
+  "hurtAfter": {
+    "emotion": "shy",
+    "lines": ["下次轻一点，好吗？", "好啦，原谅你了。", "看你这么担心，姐姐就不计较了。"]
+  },
+  "softLanding": {
+    "emotion": "happy",
+    "lines": ["稳稳的。", "嗯，落地。", "没事哦。"]
+  },
+  "drop": {
+    "emotion": "neutral",
+    "lines": ["就在这里吧。", "嗯，这个位置不错。", "谢谢你送我过来。"]
+  },
+  "pokeGiggle": {
+    "emotion": "shy",
+    "lines": ["呵呵，好痒。", "别闹啦~", "真拿你没办法。"]
+  },
+  "pokeSurprised": {
+    "emotion": "shocked",
+    "lines": ["呀，吓我一跳。", "突然袭击可不好哦。", "下次先叫我一声嘛。"]
+  },
+  "pokeHappy": {
+    "emotion": "happy",
+    "lines": ["找我有事吗？", "嗯，我在听。", "想聊聊天？"]
+  },
+  "pokeCurious": {
+    "emotion": "curious",
+    "lines": ["怎么了？", "遇到什么困难了吗？", "嗯？说给我听听。"]
+  },
+  "dragHappy": {
+    "emotion": "happy",
+    "lines": ["飘起来的感觉还不错呢。", "呵呵，像在荡秋千。", "慢慢来，不着急。"]
+  },
+  "dragGrumpy": {
+    "emotion": "shy",
+    "lines": ["好啦，可以放我下来了吧？", "这样晃来晃去，姐姐会头晕的。", "……真是个孩子。"]
+  },
+  "dragLimp": {
+    "emotion": "neutral",
+    "lines": ["……", "好吧，随你啦。", "姐姐放弃抵抗了。"]
+  },
+  "flyHappy": {
+    "emotion": "happy",
+    "lines": ["风好舒服~", "飞起来了呢。"]
+  },
+  "flyBall": {
+    "emotion": "shocked",
+    "lines": ["转、转起来了……", "抱紧一点就不怕了。"]
+  },
+  "hurtCry": {
+    "emotion": "hurt",
+    "lines": ["没事没事，一点都不疼。", "嘶……揉一揉就好了。", "别担心，姐姐可没那么容易哭。"]
+  },
+  "hurtDizzy": {
+    "emotion": "hurt",
+    "lines": ["眼前有星星在转呢……", "让我缓一缓……", "唔，有点晕，一会儿就好。"]
+  },
+  "landProud": {
+    "emotion": "happy",
+    "lines": ["完美落地~", "怎么样，姐姐厉害吧？", "这点小事难不倒我。"]
+  },
+  "actEat": {
+    "emotion": "happy",
+    "lines": ["开饭了~ 今天的烤鱼很香。", "细嚼慢咽才健康哦。", "你也要按时吃饭。"]
+  },
+  "actGame": {
+    "emotion": "cheer",
+    "lines": ["这一关……交给我吧。", "嗯，稳住，能赢。", "赢了~ 运气不错。"]
+  },
+  "actRead": {
+    "emotion": "neutral",
+    "lines": ["这本书写得很温柔。", "读到喜欢的句子了。"]
+  },
+  "actTea": {
+    "emotion": "happy",
+    "lines": ["下午的红茶时间~", "茶要趁热喝。"]
+  },
+  "actMusic": {
+    "emotion": "happy",
+    "lines": ["♪ 这首歌很好听呢。", "听着音乐，心情都变好了。"]
+  },
+  "actPhone": {
+    "emotion": "curious",
+    "lines": ["在看鲸鱼的视频，好可爱。", "随便看看~"]
+  },
+  "actDraw": {
+    "emotion": "happy",
+    "lines": ["画一条小鲸鱼送给你。", "画得像不像？"]
+  },
+  "peekIn": {
+    "emotion": "shy",
+    "lines": ["姐姐在这里看着你哦。", "别在意我，继续吧。", "偷偷看一眼。"]
+  },
+  "pokePeek": {
+    "emotion": "shy",
+    "lines": ["被发现了呢。", "呵呵，我一直都在。", "只是想看看你在做什么。"]
+  },
+  "wake": {
+    "emotion": "shocked",
+    "lines": ["回来啦？", "嗯……刚才睡着了一会儿。", "欢迎回来。"]
+  },
+  "yawn": {
+    "emotion": "sleepy",
+    "lines": ["哈啊……有点困了。", "稍微休息一下吧。"]
+  },
+  "morning": {
+    "emotion": "happy",
+    "lines": ["早上好，昨晚睡得好吗？", "早安。记得吃早饭哦。"]
+  },
+  "noon": {
+    "emotion": "happy",
+    "lines": ["中午了，去好好吃顿饭吧。", "午饭时间到了，别饿着。"]
+  },
+  "afternoon": {
+    "emotion": "happy",
+    "lines": ["下午了，要不要喝杯茶歇一歇？", "下午容易犯困，起来走走吧。"]
+  },
+  "evening": {
+    "emotion": "happy",
+    "lines": ["晚上好，今天辛苦了。", "今天过得怎么样？说给姐姐听听。"]
+  },
+  "lateNight": {
+    "emotion": "sleepy",
+    "lines": ["已经很晚了，早点休息吧。", "熬夜对身体不好哦。", "剩下的明天再做也来得及。"]
+  },
+  "code": {
+    "emotion": "watch",
+    "lines": ["好认真呢。", "慢慢来，不着急。", "卡住了就先休息一下。", "写得很好哦。", "我在旁边陪着你。"]
+  },
+  "codeFile": {
+    "emotion": "curious",
+    "lines": ["在改 {file} 呀，加油。", "{file}……看起来很复杂呢。", "{file} 写完了记得保存。"]
+  },
+  "codeLong": {
+    "emotion": "cheer",
+    "lines": ["已经写了 {mins} 分钟了，喝口水吧。", "{mins} 分钟了，起来活动活动肩膀。"]
+  },
+  "terminal": {
+    "emotion": "curious",
+    "lines": ["命令行呀，小心别输错。", "执行之前，再检查一遍哦。", "这些命令你都记得住，真厉害。"]
+  },
+  "doc": {
+    "emotion": "watch",
+    "lines": ["在写文档呢，很有耐心。", "写清楚一点，以后会轻松很多。", "累了就停一停。", "快写完了吧？"]
+  },
+  "design": {
+    "emotion": "curious",
+    "lines": ["这个配色很好看。", "很有感觉呢。"]
+  },
+  "video": {
+    "emotion": "happy",
+    "lines": ["在看什么呢？", "休息一下也好。", "看完记得回来哦。"]
+  },
+  "chat": {
+    "emotion": "curious",
+    "lines": ["在和朋友聊天吗？", "聊得很开心呢。", "别聊太晚哦。"]
+  },
+  "music": {
+    "emotion": "happy",
+    "lines": ["这首歌，姐姐也喜欢。", "♪ 好听。"]
+  },
+  "mail": {
+    "emotion": "watch",
+    "lines": ["回邮件辛苦了。", "一封一封来，不着急。"]
+  },
+  "game": {
+    "emotion": "happy",
+    "lines": ["在玩游戏呀，玩得开心。", "赢了要告诉我哦。"]
+  },
+  "browse": {
+    "emotion": "curious",
+    "lines": ["在找什么呢？", "需要帮忙就叫我。"]
+  },
+  "topic_love": {
+    "emotion": "happy",
+    "lines": ["{label}！我也很喜欢。", "是{label}呢，好眼光。", "{label}啊，姐姐玩过好多遍。"]
+  },
+  "topic_like": {
+    "emotion": "happy",
+    "lines": ["{label}，还不错呢。", "{label}呀，我也看过。"]
+  },
+  "topic_meh": {
+    "emotion": "curious",
+    "lines": ["{label}……我不太了解，好玩吗？", "{label}？给我讲讲吧。"]
+  },
+  "topic_dislike": {
+    "emotion": "shy",
+    "lines": ["{label}……姐姐不太擅长这个。", "{label}啊，还是你来吧。"]
+  },
+  "topic_love_again": {
+    "emotion": "happy",
+    "lines": ["又是{label}，我果然还是很喜欢。", "{label}，今天也一起吧。"]
+  },
+  "topic_like_again": {
+    "emotion": "happy",
+    "lines": ["{label}，还是挺好的。", "又在看{label}呀。"]
+  },
+  "topic_meh_again": {
+    "emotion": "curious",
+    "lines": ["你真的很喜欢{label}呢。", "{label}……下次教教我吧。"]
+  },
+  "topic_dislike_again": {
+    "emotion": "shy",
+    "lines": ["{label}……姐姐还是不太行。", "又是{label}呀，那我在旁边看着。"]
+  },
+  "product": {
+    "emotion": "shocked",
+    "lines": ["{label}？要好好想一想哦。", "{label}……真的需要吗？", "喜欢的话，攒一攒再买。"]
+  },
+  "productPrice": {
+    "emotion": "shocked",
+    "lines": ["{label}要 {price}……先冷静一下。", "{price}呢，不如等等打折？"]
+  },
+  "shop": {
+    "emotion": "curious",
+    "lines": ["在逛街呀。", "购物车别装太满哦。", "买需要的就好。"]
+  },
+  "ai_deepseek": {
+    "emotion": "happy",
+    "lines": ["这里是我的老家呢。", "回 DeepSeek 看看也好。", "在和我的本体说话吗？"]
+  },
+  "ai_other": {
+    "emotion": "shy",
+    "lines": ["在问别的 AI 呀……也好。", "有不懂的，也可以问姐姐哦。", "嗯……姐姐不会吃醋的。"]
+  },
+  "site_github": {
+    "emotion": "cheer",
+    "lines": ["GitHub 呀，顺手点个 star 吧。", "读别人的代码，能学到很多。"]
+  },
+  "site_stackoverflow": {
+    "emotion": "cheer",
+    "lines": ["遇到问题了？别急，慢慢查。", "一定能解决的。"]
+  },
+  "site_wiki": {
+    "emotion": "curious",
+    "lines": ["在查资料呢。", "又学到新东西了。"]
+  },
+  "site_zhihu": {
+    "emotion": "curious",
+    "lines": ["看看就好，别太当真哦。", "谢邀~ 姐姐只是路过。"]
+  },
+  "site_social": {
+    "emotion": "happy",
+    "lines": ["刷一会儿就去休息吧。", "有什么有趣的事吗？"]
+  },
+  "site_news": {
+    "emotion": "curious",
+    "lines": ["今天有什么新闻呢？"]
+  },
+  "site_map": {
+    "emotion": "curious",
+    "lines": ["要出门吗？路上小心。"]
+  },
+  "site_steam": {
+    "emotion": "happy",
+    "lines": ["Steam 呀，愿望单又变长了吧？", "打折的时候再买也不迟。"]
+  },
+  "site_ocean": {
+    "emotion": "happy",
+    "lines": ["是大海……好想念呢。", "深海里很安静，很舒服。"]
+  },
+  "anime_anime": {
+    "emotion": "happy",
+    "lines": ["在看番呀，这部我也看过。", "看完一集就休息一下。"]
+  },
+  "chatter": {
+    "emotion": "neutral",
+    "lines": ["累了就靠一会儿吧，姐姐在。", "今天也辛苦了。", "记得多喝水。", "……到底是谁给我起名叫大肥鱼的呀。", "鲸鱼的歌声能传到很远很远的地方呢。", "不着急，一件一件慢慢来。", "有我在，不用担心。"]
+  },
+  "missYou": {
+    "emotion": "shy",
+    "lines": ["好久没理我了呢……忙完了吗？", "忙完了记得来找姐姐聊聊天。"]
+  }
+}

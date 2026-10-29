@@ -1,0 +1,64 @@
+{
+  "timestamp_utc": "2026-10-29T03:41:52.384762+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2",
+      "prompt": "图1是角色\"大肥鱼·成熟\"的正面立绘母版（约七头身的成熟比例；角色设计、身材比例、画风都以图1为准）。\n创建一张新图：画图1的角色摆出下面的姿势和表情。保持约七头身的成熟比例（不是 Q 版），头部大小与图1相同。\n角色设计、发型（深海蓝长卷发、呆毛、脑后的发辫）、白色荷叶边发箍和蓝色蝴蝶结、鲸鱼鳍形状的耳朵、女仆装（露肩、分离式泡泡袖、蓝宝石胸针和黑色领结、带小鲸鱼图案的白色围裙）、白色过膝长袜、深藏青色玛丽珍粗跟鞋、身后的鲸鱼尾巴，以及画风、线条粗细、上色方式必须与图1一致。\n她是温柔可靠的成熟大姐姐：举止优雅从容，表情柔和，情绪表达含蓄，不会哭，不做幼稚夸张的动作。动作和坐姿端庄，裙摆自然垂下，不走光，领口端庄。\n姿势与表情：坐在地上看书：双腿并拢折向一侧（横坐），双手捧着一本打开的书放在膝上，低头安静地看书，表情温柔专注，一缕头发垂到书页旁。\n只画一个角色，完整全身入镜（除非姿势要求身体被画面边缘截断），真实透明背景，干净的主体边缘，无地面、无投影、无文字、无水印、无多视图。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/mature/ref/master.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 59.158,
+  "usage": {
+    "input_tokens": 1956,
+    "input_tokens_details": {
+      "image_tokens": 1536,
+      "text_tokens": 420
+    },
+    "output_tokens": 1372,
+    "output_tokens_details": {
+      "image_tokens": 1372,
+      "text_tokens": 0
+    },
+    "total_tokens": 3328
+  },
+  "response_metadata": {
+    "created": 1793245287,
+    "size": "1024x1536",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/mature/raw/read.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1024,
+        1536
+      ],
+      "alpha_min": 0,
+      "alpha_max": 254,
+      "transparent_pixels": 669698,
+      "nonopaque_pixels": 1572864,
+      "fully_transparent_fraction": 0.425783,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2",
+      "reported_size": "1024x1536",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

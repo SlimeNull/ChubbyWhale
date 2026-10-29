@@ -1,0 +1,64 @@
+{
+  "timestamp_utc": "2026-10-29T03:22:05.550105+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2.5-sunburst",
+      "prompt": "这是一次修图。图1是编辑目标：成熟的男性角色从画面右边缘（一面看不见的墙）后面探出身子，手扒着墙边。\n保持构图、姿势、扒着墙边的位置、人物位置和大小完全不变，只修改表情：眼睛微微眯起看向一旁，嘴角上扬一点点，耳朵微微泛红。\n必须保留：角色设计、发型、耳机、服装、画风、线条、上色方式、构图、人物在画面中的位置和大小完全不变；背景保持真实透明；无文字、无水印。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue-mature/ref/peek.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 44.922,
+  "usage": {
+    "input_tokens": 1699,
+    "input_tokens_details": {
+      "image_tokens": 1536,
+      "text_tokens": 163
+    },
+    "output_tokens": 1372,
+    "output_tokens_details": {
+      "image_tokens": 1372,
+      "text_tokens": 0
+    },
+    "total_tokens": 3071
+  },
+  "response_metadata": {
+    "created": 1793244112,
+    "size": "1024x1536",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue-mature/raw/peek_smile.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1024,
+        1536
+      ],
+      "alpha_min": 0,
+      "alpha_max": 254,
+      "transparent_pixels": 1197080,
+      "nonopaque_pixels": 1572864,
+      "fully_transparent_fraction": 0.761083,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2.5-sunburst",
+      "reported_size": "1024x1536",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

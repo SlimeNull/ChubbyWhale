@@ -1,0 +1,65 @@
+{
+  "timestamp_utc": "2026-10-29T03:30:36.712106+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2.5-sunburst",
+      "prompt": "这是一次修图。图1是编辑目标：成熟的女性角色坐在地上，一手捧着饭碗、一手拿筷子吃饭。\n保持构图、姿势、饭碗和筷子的位置、人物位置和大小完全不变，只修改：把筷子夹着的米饭送到嘴边轻轻咬住，眼睛闭起来，表情满足而优雅。\n必须保留：角色设计、发型、发箍和蝴蝶结、鳍状耳朵、服装、尾巴、画风、线条、上色方式、构图、人物在画面中的位置和大小完全不变；背景保持真实透明；无文字、无水印。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/mature/ref/eat.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 91.203,
+  "usage": {
+    "input_tokens": 1683,
+    "input_tokens_details": {
+      "image_tokens": 1505,
+      "text_tokens": 178
+    },
+    "output_tokens": 1630,
+    "output_tokens_details": {
+      "image_tokens": 1630,
+      "text_tokens": 0
+    },
+    "total_tokens": 3313
+  },
+  "response_metadata": {
+    "created": 1793244590,
+    "size": "1402x1122",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/mature/raw/eat_b.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1402,
+        1122
+      ],
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 791341,
+      "nonopaque_pixels": 1571920,
+      "fully_transparent_fraction": 0.503063,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2.5-sunburst",
+      "reported_size": "1402x1122",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求尺寸 1024x1536，实际尺寸 1402x1122。",
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

@@ -151,13 +151,13 @@ def cut_line(im: Image.Image) -> int:
     return int(np.median(xs))
 
 
-def head_center_x(im: Image.Image) -> float:
-    """Horizontal center of mass of the top 30% (the head), as a 0..1 fraction.
+def head_center_x(im: Image.Image, head_rows=0.3) -> float:
+    """Horizontal center of mass of the top `head_rows` (the head), as a 0..1 fraction.
 
     The tail sticks out to one side, so the bbox center is not the body center.
     """
     a = im.getchannel("A")
-    rows = max(1, int(a.height * 0.3))
+    rows = max(1, int(a.height * head_rows))
     total = weighted = 0
     for y in range(0, rows, 2):
         for x in range(0, a.width, 2):
@@ -167,14 +167,14 @@ def head_center_x(im: Image.Image) -> float:
     return round(weighted / total / a.width, 4) if total else 0.5
 
 
-def export(out: Path, name: str, im: Image.Image, crop_box, manifest: dict, extra_scale=1.0, flip=False):
+def export(out: Path, name: str, im: Image.Image, crop_box, manifest: dict, extra_scale=1.0, flip=False, head_rows=0.3):
     im = im.crop(crop_box)
     if flip:
         im = im.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
     s = SCALE * extra_scale
     im = im.resize((max(1, round(im.width * s)), max(1, round(im.height * s))), Image.Resampling.LANCZOS)
     im.save(out / f"{name}.webp", quality=92, method=6, exact=True)
-    manifest[name] = {"w": im.width, "h": im.height, "ax": head_center_x(im)}
+    manifest[name] = {"w": im.width, "h": im.height, "ax": head_center_x(im, head_rows)}
 
 
 def build(skin_id: str):
@@ -182,6 +182,8 @@ def build(skin_id: str):
     RAW = cfg_skin["art"] / "raw"
     OUT = ROOT / "skins" / skin_id / "sprites"
     POSES, EYES, MOUTH, GAZE = cfg_skin["poses"], cfg_skin["eyes"], cfg_skin["mouth"], cfg_skin["gaze"]
+    figure = {**DEFAULT_FIGURE, **cfg_skin.get("figure", {})}
+    rows = cfg_skin.get("head_rows", 0.3)
     OUT.mkdir(parents=True, exist_ok=True)
     for old in [*OUT.glob("*.png"), *OUT.glob("*.webp")]:
         old.unlink()
@@ -190,6 +192,8 @@ def build(skin_id: str):
         # Distance between the feet in walk_a / run_a when she is 230px tall: pet.ts
         # moves exactly one stride per step so the feet don't slide.
         "motion": {"walkStride": cfg_skin["strides"]["walk"], "runStride": cfg_skin["strides"]["run"]},
+        # Body proportions (src/skin.ts Figure): display height, window size, head, collar.
+        "figure": figure,
         "poses": {},
         "variants": {},
     }
@@ -212,7 +216,7 @@ def build(skin_id: str):
                 bbox = (bbox[0], bbox[1], cut + 1, bbox[3])
         if cfg.get("grip"):
             bbox = (bbox[0], bbox[1], cut_line(im) + 1, bbox[3])
-        export(OUT, name, im, bbox, manifest["poses"], cfg.get("scale", 1.0), cfg.get("flip", False))
+        export(OUT, name, im, bbox, manifest["poses"], cfg.get("scale", 1.0), cfg.get("flip", False), rows)
         if "crop_like" in cfg:
             # Same anchor as the base pose too, so the frames overlay exactly (no sideways jitter).
             manifest["poses"][name]["ax"] = manifest["poses"][cfg["crop_like"]]["ax"]
@@ -222,13 +226,13 @@ def build(skin_id: str):
             for vname, raw, ell in [("idle_blink", "blink.png", EYES), ("idle_talk", "talk.png", MOUTH)]:
                 if (RAW / raw).exists():
                     v = patch(im, clean_alpha(Image.open(RAW / raw)), ell)
-                    export(OUT, vname, v, bbox, manifest["variants"])
+                    export(OUT, vname, v, bbox, manifest["variants"], head_rows=rows)
             # Gaze: left / right eye patched in from the picked candidates.
             base = [pupil(im, e) for e in EYES]
             for d, (lf, rf) in GAZE.items():
                 left, right = (clean_alpha(Image.open(RAW / "gaze" / f"{f}.png")) for f in (lf, rf))
                 v = patch(patch(im, left, EYES[:1]), right, EYES[1:])
-                export(OUT, f"idle_gaze_{d}", v, bbox, manifest["variants"])
+                export(OUT, f"idle_gaze_{d}", v, bbox, manifest["variants"], head_rows=rows)
                 shifts = [np.round(np.subtract(p, b), 1).tolist() if p and b else None for p, b in zip((pupil(v, e) for e in EYES), base)]
                 print(f"idle_gaze_{d}: {lf} + {rf}, pupil shifts L {shifts[0]} R {shifts[1]}")
 
@@ -237,19 +241,23 @@ def build(skin_id: str):
     check_fit(manifest)
 
 
-# The pet window (motion.rs set_pet_scale BASE, tauri.conf.json) at 230px idle height:
-# her feet are at the bottom center, so a pose may reach this far to each side and up.
-WINDOW_HALF_WIDTH = 332 / 2
-WINDOW_HEIGHT = 290 - 8
+# Body proportions (src/skin.ts DEFAULT_FIGURE): idle height and pet window at the
+# "large" size, head center / half width, where she's held while dragged. Chibi skins
+# use these; tall skins set their own "figure" in SKINS.
+DEFAULT_FIGURE = {"height": 230, "window": [332, 290], "headY": 0.2, "headR": 0.28, "hang": 0.3}
 
 
 def check_fit(manifest: dict):
-    k = 230 / manifest["poses"]["idle"]["h"]
+    """Her feet are at the window's bottom center (8px up), so a pose may reach half
+    the window width to each side and the window height up."""
+    fig = manifest["figure"]
+    half_width, height = fig["window"][0] / 2 - 2, fig["window"][1] - 8
+    k = fig["height"] / manifest["poses"]["idle"]["h"]
     for name, m in {**manifest["poses"], **manifest["variants"]}.items():
         half = max(m["ax"], 1 - m["ax"]) * m["w"] * k
-        if half > WINDOW_HALF_WIDTH - 2 or m["h"] * k > WINDOW_HEIGHT:
+        if half > half_width or m["h"] * k > height:
             print(f"WARNING {name} doesn't fit the pet window: {half:.0f}px to one side, {m['h'] * k:.0f}px tall "
-                  f"(max {WINDOW_HALF_WIDTH - 2:.0f} / {WINDOW_HEIGHT}). Lower its scale or widen the window.")
+                  f"(max {half_width:.0f} / {height}). Lower its scale or widen the window.")
 
 
 # ---------- 深海蓝调 (deep-blue): the aloof male skin ----------
@@ -294,10 +302,17 @@ DEEP_BLUE_SCALES = {
     "phone": 0.85,
     "draw": 0.79,
 }
-DEEP_BLUE_POSES: dict[str, dict] = {
-    name: {**{k: v for k, v in cfg.items() if k != "scale"}, **({"scale": DEEP_BLUE_SCALES[name]} if name in DEEP_BLUE_SCALES else {})}
-    for name, cfg in POSES.items()
-}
+
+
+def with_scales(scales: dict[str, float]) -> dict[str, dict]:
+    """The standard POSES (crop_like, grip, ...) with another skin's measured scales."""
+    return {
+        name: {**{k: v for k, v in cfg.items() if k != "scale"}, **({"scale": scales[name]} if name in scales else {})}
+        for name, cfg in POSES.items()
+    }
+
+
+DEEP_BLUE_POSES = with_scales(DEEP_BLUE_SCALES)
 DEEP_BLUE_EYES = [(428, 400, 562, 518), (622, 395, 772, 505)]
 DEEP_BLUE_MOUTH = [(560, 518, 640, 568)]
 # Picked against art/skins/deep-blue/ref/look/<dir>.png (see AGENTS.md).
@@ -308,6 +323,98 @@ DEEP_BLUE_GAZE = {
     "d": ("d-0", "d-0"),
     "ul": ("ul-0", "ul-0"),
     "ur": ("ur-1", "ur-1"),
+    "dl": ("dl-1", "dl-1"),
+    "dr": ("dr-1", "dr-1"),
+}
+
+# ---------- 大肥鱼·成熟 (mature) / 深海蓝调·成熟 (deep-blue-mature): 7–8 heads tall ----------
+# Raw art in art/skins/<id>/, generated from a mature master (from the upstream
+# character sheets) with the pose described in text; a few poses also got the
+# standard pose as a composition reference. Adults sit or kneel instead of lying
+# flat, which also keeps them inside the window. They are taller on screen than
+# the chibi skins (figure.height) so the face stays readable; head center, head
+# width and collar were measured on the master, as fractions of the idle height.
+# Head sizes: art/measure_heads.py can't handle these (the head is a small part of a
+# tall figure, and seated / peek poses were drawn zoomed in up to ~1.9x, past its
+# search range), so they were measured on the raw art: standing poses by body
+# height (equal proportions: head ∝ height), the rest by template matching the
+# master's face and headdress / headset over 0.8–2.6x, checked against the distance
+# between the eyes where the two disagreed (then their mean), and the run frames
+# against walk_a's profile head. Scale = 1 / measured head size.
+MATURE_SCALES = {
+    "sleep": 0.73,
+    "dragged": 0.91,
+    "fly": 0.90,
+    "hurt": 0.70,
+    "watch": 0.70,
+    "dragged_happy": 0.88,
+    "dragged_grumpy": 0.96,
+    "dragged_limp": 0.89,
+    "fly_happy": 0.86,
+    "fly_ball": 0.65,
+    "hurt_cry": 0.71,
+    "hurt_dizzy": 0.76,
+    "run_a": 0.96,
+    "run_b": 0.96,
+    "peek": 0.69,
+    "peek_wave": 0.69,
+    "peek_smile": 0.69,
+    "peek_sleepy": 0.69,
+    "eat": 0.74,
+    "eat_b": 0.74,
+    "game": 0.67,
+    "game_b": 0.67,
+    "read": 0.76,
+    "phone": 0.76,
+    "draw": 0.71,
+}
+MATURE_EYES = [(374, 172, 440, 226), (455, 150, 520, 205)]
+MATURE_MOUTH = [(436, 222, 484, 250)]
+# Picked against art/skins/mature/ref/look/<dir>.png (bust close-ups: in a full-body
+# picture the eyes are too small to compare).
+MATURE_GAZE = {
+    "l": ("l-0", "l-0"),
+    "r": ("r-1", "r-1"),
+    "u": ("u-0", "u-0"),
+    "d": ("d-1", "d-1"),
+    "ul": ("ul-0", "ul-0"),
+    "ur": ("ur-1", "ur-1"),
+    "dl": ("dl-0", "dl-0"),
+    "dr": ("dr-0", "dr-0"),
+}
+DEEP_BLUE_MATURE_SCALES = {  # measured as for MATURE_SCALES
+    "sleep": 0.69,
+    "dragged": 0.92,
+    "fly": 0.97,
+    "hurt": 0.74,
+    "watch": 0.66,
+    "dragged_grumpy": 0.81,
+    "dragged_limp": 0.93,
+    "fly_ball": 0.55,
+    "hurt_cry": 0.69,
+    "hurt_dizzy": 0.72,
+    "run_a": 0.86,
+    "run_b": 0.86,
+    "peek": 0.56,
+    "peek_wave": 0.56,
+    "peek_smile": 0.56,
+    "peek_sleepy": 0.56,
+    "eat": 0.54,
+    "eat_b": 0.54,
+    "game": 0.59,
+    "game_b": 0.59,
+    "draw": 0.68,
+}
+DEEP_BLUE_MATURE_EYES = [(448, 113, 494, 152), (500, 112, 550, 151)]
+DEEP_BLUE_MATURE_MOUTH = [(480, 166, 526, 194)]
+# Picked against art/skins/deep-blue-mature/ref/look/<dir>.png, as above.
+DEEP_BLUE_MATURE_GAZE = {
+    "l": ("l-0", "l-0"),
+    "r": ("r-1", "r-1"),
+    "u": ("u-0", "u-0"),
+    "d": ("d-1", "d-1"),
+    "ul": ("ul-0", "ul-0"),
+    "ur": ("ur-0", "ur-0"),
     "dl": ("dl-1", "dl-1"),
     "dr": ("dr-1", "dr-1"),
 }
@@ -328,6 +435,28 @@ SKINS: dict[str, dict] = {
         "mouth": DEEP_BLUE_MOUTH,
         "gaze": DEEP_BLUE_GAZE,
         "strides": {"walk": 97, "run": 128},  # mean of the A / B frames, measured at the soles
+    },
+    "mature": {
+        "art": ROOT / "art" / "skins" / "mature",
+        "poses": with_scales(MATURE_SCALES),
+        "eyes": MATURE_EYES,
+        "mouth": MATURE_MOUTH,
+        "gaze": MATURE_GAZE,
+        # Sole to sole at 230px idle height, × the frames' scale (walk: mean of A / B;
+        # run: run_a, in run_b the tail merges with a foot)
+        "strides": {"walk": 67, "run": 94},
+        "figure": {"height": 300, "window": [292, 350], "headY": 0.12, "headR": 0.12, "hang": 0.19},
+        "head_rows": 0.15,
+    },
+    "deep-blue-mature": {
+        "art": ROOT / "art" / "skins" / "deep-blue-mature",
+        "poses": with_scales(DEEP_BLUE_MATURE_SCALES),
+        "eyes": DEEP_BLUE_MATURE_EYES,
+        "mouth": DEEP_BLUE_MATURE_MOUTH,
+        "gaze": DEEP_BLUE_MATURE_GAZE,
+        "strides": {"walk": 73, "run": 57},  # as above; run: mean of A / B
+        "figure": {"height": 320, "window": [282, 370], "headY": 0.09, "headR": 0.08, "hang": 0.15},
+        "head_rows": 0.13,
     },
 }
 

@@ -110,7 +110,8 @@ export function installDebug(rig: Rig, pet: Pet, fx: Fx) {
       rig.flying = false;
     }
     fx.sleeping = false;
-    rig.hang = { x: 150, y: 120 };
+    // Like a real drag (pet.ts): keep the dangling body inside the window.
+    rig.hang = { x: innerWidth / 2, y: Math.min(120, innerHeight - rig.height * (1.02 - rig.figure.hang)) };
     rig.setPose("dragged", false);
     rig.kickSwing(3);
     await wait(1600);
@@ -195,14 +196,16 @@ async function featureTest(rig: Rig, pet: Pet, log: (level: string, args: unknow
   const tick = setInterval(() => rig.app.ticker.update(performance.now()), 16);
   await wait(2500);
 
+  const resize = async (k: number) => {
+    await ipc.setPetSize(rig.figure.window[0] * k, rig.figure.window[1] * k);
+    rig.height = rig.figure.height * k;
+  };
   for (const [name, k] of Object.entries(SIZE_SCALE)) {
-    await invoke("set_pet_scale", { factor: k });
+    await resize(k);
     await wait(700);
-    rig.height = 230 * k;
     log("info", [`size ${name}`, { window: [innerWidth, innerHeight], body: rig.bodyRect().map(Math.round) }]);
   }
-  await invoke("set_pet_scale", { factor: 1 });
-  rig.height = 230;
+  await resize(1);
 
   const render = async (name: string, play: () => void, secs = 1.6) => {
     const ctx = new OfflineAudioContext(1, Math.round(44100 * secs), 44100);
@@ -372,7 +375,8 @@ async function dockTest(rig: Rig, pet: Pet, log: (level: string, args: unknown[]
   log("info", ["tuck interrupted", { whileTucked: hidden, afterTalking: await align("left"), pose: rig.pose, mode: pet.mode }]);
   p.undock();
   p.toRest();
-  await invoke("set_pet_scale", { factor: 0.75 });
+  await ipc.setPetSize(rig.figure.window[0] * 0.75, rig.figure.window[1] * 0.75);
+  rig.height = rig.figure.height * 0.75;
   for (const a of ACTIVITIES) {
     p.toRest();
     const done = p.activity(a);

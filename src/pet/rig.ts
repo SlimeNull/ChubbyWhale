@@ -1,7 +1,7 @@
 // Renders Chubby Whale as a deformable mesh so a single illustration can
 // breathe, lean, squash and dangle — a lightweight, Live2D-style puppet.
 import { Application, Container, Graphics, ImageSource, MeshPlane, Rectangle, Texture } from "pixi.js";
-import type { Skin, SpriteMeta } from "../skin";
+import { DEFAULT_FIGURE, type Figure, type Skin, type SpriteMeta } from "../skin";
 
 export type PoseName =
   | "idle"
@@ -84,8 +84,10 @@ export class Rig {
    */
   clip: { side: "left" | "right"; x: number } | null = null;
   private clipMask = new Graphics();
-  /** Display height of the idle pose in CSS px. */
-  height = 230;
+  /** Body proportions of the skin's art (set before init). */
+  figure: Figure = DEFAULT_FIGURE;
+  /** Display height of the idle pose in CSS px (figure.height × the size setting). */
+  height = DEFAULT_FIGURE.height;
   flip = false;
 
   /** Where the feet stand, window-local CSS px (the window resizes with the pet size). */
@@ -260,7 +262,7 @@ export class Rig {
   head(): { x: number; y: number; top: number } {
     const b = this.bounds();
     const top = b.y + b.height * 0.04;
-    return { x: b.x + b.width * this.anchorX(), y: b.y + b.height * 0.2, top };
+    return { x: b.x + b.width * this.anchorX(), y: b.y + b.height * this.figure.headY, top };
   }
 
   private anchorX() {
@@ -324,7 +326,7 @@ export class Rig {
 
     const breath = (Math.sin(this.t * 2.2 * this.breathRate) + 1) / 2;
     const { w, h, ax } = meta;
-    const hangPivot = 0.3; // hold her by the collar
+    const hangPivot = this.figure.hang; // hold her by the collar
     const ay = this.hang ? hangPivot : this.flying ? 0.55 : 1;
 
     const peeking = texName.startsWith("peek");

@@ -14,8 +14,6 @@ import { Rig } from "./pet/rig";
 import { loadSkin } from "./skin";
 import "./styles.css";
 
-const BASE_HEIGHT = 230;
-
 // Keep a log of frontend errors in release builds too (see store::log_error).
 const report = (what: string, e: unknown) =>
   ipc.logError(`${new Date().toISOString()} ${what} ${e instanceof Error ? `${e.message}\n${e.stack ?? ""}` : String(e)}`);
@@ -32,11 +30,13 @@ async function main() {
 
   const stage = document.getElementById("stage")!;
   const rig = new Rig();
+  rig.figure = skin.sprites.figure;
   // Resize the window to the chosen size; the layout follows the window.
   const applySize = async () => {
     const k = SIZE_SCALE[settings.size];
-    rig.height = BASE_HEIGHT * k;
-    await ipc.setPetScale(k);
+    const [w, h] = rig.figure.window;
+    rig.height = rig.figure.height * k;
+    await ipc.setPetSize(w * k, h * k);
     if (rig.ready) await ipc.setBody(rig.bodyRect());
   };
   await applySize();

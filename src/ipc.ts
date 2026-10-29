@@ -63,7 +63,8 @@ export const ipc = {
    */
   glideBy: (dx: number, speed: number, linear = false, span?: [number, number]) =>
     invoke<number>("glide_by", { dx, speed, linear, span: span ?? null }),
-  setPetScale: (factor: number) => invoke<void>("set_pet_scale", { factor }),
+  /** Logical px; the feet (bottom center) stay put. */
+  setPetSize: (width: number, height: number) => invoke<void>("set_pet_size", { width, height }),
   /** Slide so window-local x `edgeX` sits on that screen edge; `top..bottom` stays on screen. */
   dock: (side: "left" | "right", edgeX: number, top: number, bottom: number) => invoke<void>("dock", { side, edgeX, top, bottom }),
 

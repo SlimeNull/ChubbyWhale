@@ -1,0 +1,64 @@
+{
+  "timestamp_utc": "2026-10-29T03:25:28.834072+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2.5-sunburst",
+      "prompt": "这是一次局部修图。图1是编辑目标：成熟的女性角色侧身朝画面左侧走路。\n只修改蒙版透明区域（裙摆下方的双腿和双脚）：把迈步的两条腿交换——变成右脚在前迈出一步、脚跟着地，左脚在后、脚尖点地，形成走路的下一帧，步幅和原来一样大。\n必须保留：白色过膝长袜和深藏青色玛丽珍粗跟鞋的样式和颜色，画风、线条、上色、人物位置和大小完全不变；蒙版外的头部、头发、上身和手臂保持原样；背景保持真实透明。\n避免：改动蒙版外的内容、添加文字或水印。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/mature/ref/walk_a.png"
+    ],
+    "mask": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/mature/ref/mask_walk_a_legs.png"
+  },
+  "elapsed_seconds": 48.128,
+  "usage": {
+    "input_tokens": 1733,
+    "input_tokens_details": {
+      "image_tokens": 1536,
+      "text_tokens": 197
+    },
+    "output_tokens": 1372,
+    "output_tokens_details": {
+      "image_tokens": 1372,
+      "text_tokens": 0
+    },
+    "total_tokens": 3105
+  },
+  "response_metadata": {
+    "created": 1793244326,
+    "size": "1024x1536",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/mature/raw/walk_b.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1024,
+        1536
+      ],
+      "alpha_min": 0,
+      "alpha_max": 254,
+      "transparent_pixels": 851648,
+      "nonopaque_pixels": 1572864,
+      "fully_transparent_fraction": 0.541463,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2.5-sunburst",
+      "reported_size": "1024x1536",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

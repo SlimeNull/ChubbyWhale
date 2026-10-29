@@ -43,7 +43,7 @@ agent 直接看图来判断「眼神、表情、姿势自不自然」并不可�
 
 参考图放在 `art/ref/look/`（不参与构建）。
 
-能测量的就不要目测。比如各姿势的头部大小，用 `python art/measure_heads.py` 测量后再设 `POSES` 的 scale（做法见 STRUCTURE.md「美术流水线」第 3 条）；目测定的 scale 曾让探头时的她比平时大了约 20%。
+能测量的就不要目测。比如各姿势的头部大小，用 `python art/measure_heads.py` 测量后再设 `POSES` 的 scale（做法见 STRUCTURE.md「美术流水线」第 3 条）；目测定的 scale 曾让探头时的她比平时大了约 20%。七八头身的成熟皮肤 measure_heads.py 测不准，换用 STRUCTURE.md「做一个新的内置皮肤」末尾写的办法量。
 
 ## 改完之后的检查
 

@@ -45,9 +45,31 @@ export interface SpriteMeta {
   ax: number;
 }
 
+/**
+ * Body proportions of the skin's art. Chibi skins use the defaults; a tall
+ * (7–8 heads) figure needs more height for the same face size, and its head and
+ * collar sit higher up.
+ */
+export interface Figure {
+  /** Display height of the idle pose at the "large" size (CSS px). */
+  height: number;
+  /** Pet window size at the "large" size (CSS px); the feet stand at its bottom center. */
+  window: [number, number];
+  /** Head center, as a fraction of the shown pose's height from its top. */
+  headY: number;
+  /** Half the head width (speech bubble anchor), as a fraction of `height`. */
+  headR: number;
+  /** Where the cursor holds her while dragged (the collar), as a fraction of the pose's height from its top. */
+  hang: number;
+}
+
+export const DEFAULT_FIGURE: Figure = { height: 230, window: [332, 290], headY: 0.2, headR: 0.28, hang: 0.3 };
+
 export interface SpriteManifest {
   /** Distance between the feet in walk_a / run_a when she is 230px tall (px). */
   motion?: { walkStride: number; runStride: number };
+  /** Missing fields: DEFAULT_FIGURE. Always the skin's own (it describes its art). */
+  figure?: Partial<Figure>;
   poses: Record<string, SpriteMeta>;
   variants: Record<string, SpriteMeta>;
 }
@@ -60,7 +82,8 @@ export interface Skin {
   voice: VoiceProfile;
   /** Skin whose voice/ folder holds the clips listed in `voice.clips`. */
   voiceFrom: string;
-  sprites: SpriteManifest;
+  /** `figure` is always complete here. */
+  sprites: SpriteManifest & { figure: Figure };
   /** Raw bytes of one of this skin's sprites (`sprites/<name>.webp`). */
   sprite(name: string): Promise<Blob>;
   /** Raw bytes of a file in the skin that owns the voice clips. */
@@ -145,7 +168,12 @@ function build(
 ): Skin {
   // Sprites the skin doesn't have (shouldn't happen after import checks) come from the base skin.
   const fromBase = new Set<string>();
-  const all: SpriteManifest = { motion: sprites.motion ?? baseSprites.motion, poses: { ...sprites.poses }, variants: { ...sprites.variants } };
+  const all: SpriteManifest = {
+    motion: sprites.motion ?? baseSprites.motion,
+    figure: { ...DEFAULT_FIGURE, ...sprites.figure },
+    poses: { ...sprites.poses },
+    variants: { ...sprites.variants },
+  };
   for (const group of ["poses", "variants"] as const) {
     for (const [name, m] of Object.entries(baseSprites[group])) {
       if (!all[group][name]) {
@@ -162,7 +190,7 @@ function build(
     prompts,
     voice,
     voiceFrom,
-    sprites: all,
+    sprites: all as Skin["sprites"],
     async sprite(name) {
       const from = fromBase.has(name) ? BASE_SKIN : meta.id;
       return new Blob([await ipc.skinFile(from, `sprites/${name}.webp`)], { type: "image/webp" });

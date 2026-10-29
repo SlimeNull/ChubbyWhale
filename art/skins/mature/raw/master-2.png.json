@@ -1,0 +1,64 @@
+{
+  "timestamp_utc": "2026-10-29T03:13:14.664520+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2",
+      "prompt": "图1是角色\"大肥鱼\"成熟比例版的官方设定集（角色设计和身材比例以图1为准）。\n创建一张新图：把图1的角色画成一张桌面宠物用的单人全身立绘。\n比例：约七头身的成熟比例（不是 Q 版），身材修长匀称，气质是温柔可靠的大姐姐。\n画风：日系动画赛璐璐上色，干净清晰的深蓝色描线，线条比图1稍粗一点（缩小显示时也清楚），色块分明，高光简洁。\n角色设计（必须与图1一致）：深海蓝色的长卷发垂到大腿，发梢渐变成浅蓝色，头顶一根呆毛，脑后编着一圈发辫，白色荷叶边女仆发箍，两侧各有一个蓝色蝴蝶结；头两侧是鲸鱼鳍形状的深蓝色耳朵，下沿是白色毛边；蓝色眼睛，温柔微垂的眼型；女仆装：白色立领上有蓝宝石胸针和黑色领结，露肩，深藏青色分离式泡泡长袖带白色荷叶袖口，深藏青色束腰带金色纽扣，白色荷叶边围裙，围裙上有一个小鲸鱼图案，深藏青色裙子下面是白色荷叶边衬裙；白色过膝长袜，袜口有黑色小蝴蝶结；深藏青色玛丽珍粗跟鞋，带金色圆扣；身后有一条深蓝色的鲸鱼尾巴，尾鳍末端渐变成浅蓝色。服装端庄得体，领口不要开得太低。\n姿势与表情：正面站立，双脚并拢，双手轻轻交叠放在身前，肩膀放松，头正对画面；温柔地微笑，嘴巴闭着，眼睛看着正前方（看着观众）。\n只画一个角色，完整全身入镜，人物居中，真实透明背景，干净的主体边缘，无地面、无投影、无文字、无水印、无多视图。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/mature/ref/upstream/character-sheet.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 58.835,
+  "usage": {
+    "input_tokens": 2001,
+    "input_tokens_details": {
+      "image_tokens": 1452,
+      "text_tokens": 549
+    },
+    "output_tokens": 1372,
+    "output_tokens_details": {
+      "image_tokens": 1372,
+      "text_tokens": 0
+    },
+    "total_tokens": 3373
+  },
+  "response_metadata": {
+    "created": 1793243574,
+    "size": "1024x1536",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/mature/raw/master-2.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1024,
+        1536
+      ],
+      "alpha_min": 0,
+      "alpha_max": 254,
+      "transparent_pixels": 975119,
+      "nonopaque_pixels": 1572864,
+      "fully_transparent_fraction": 0.619964,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2",
+      "reported_size": "1024x1536",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

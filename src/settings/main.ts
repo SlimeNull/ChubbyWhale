@@ -1,15 +1,18 @@
 import { emit } from "@tauri-apps/api/event";
 import { engine } from "../audio/engine";
 import { playSfx, SFX_NAMES } from "../audio/sfx";
-import { loadVoiceClips, playVoice, VOICE_KINDS } from "../audio/voice";
-import { STANCE_LABEL, type MemoryData } from "../brain/memory";
+import { playVoice, setVoice, VOICE_KINDS } from "../audio/voice";
+import { loadMemoryData, STANCE_LABEL } from "../brain/memory";
 import { loadSettings, saveSettings, type Settings } from "../brain/settings";
-import { ipc } from "../ipc";
+import { ipc, type SkinMeta } from "../ipc";
+import { BASE_SKIN, loadSkin, type Skin } from "../skin";
 import "./settings.css";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 let settings: Settings;
+/** The chosen skin, loaded (voice previews, LLM test, avatar). */
+let skin: Skin;
 
 function fill() {
   for (const r of document.querySelectorAll<HTMLInputElement>('input[name="size"]')) r.checked = r.value === settings.size;
@@ -29,6 +32,7 @@ function fill() {
 
 function read(): Settings {
   return {
+    skin: settings.skin,
     size: (document.querySelector<HTMLInputElement>('input[name="size"]:checked')?.value ?? "medium") as Settings["size"],
     activityAware: $<HTMLInputElement>("activityAware").checked,
     commentOnPages: $<HTMLInputElement>("commentOnPages").checked,
@@ -57,7 +61,8 @@ async function persist() {
 }
 
 async function showMemory() {
-  const mem = await ipc.storeLoad<MemoryData>("memory");
+  $("memorySkin").textContent = skin.meta.name;
+  const mem = await loadMemoryData(skin.meta.id);
   const list = $("opinions");
   list.replaceChildren();
   const ops = Object.values(mem?.opinions ?? {});
@@ -103,15 +108,130 @@ function addPreviewButtons() {
   for (const k of VOICE_KINDS) add("voiceButtons", VOICE_LABEL[k] ?? k, () => playVoice(k));
 }
 
+// ---------- skins ----------
+
+/** Object URLs of skin thumbnails, by skin id. */
+const thumbs = new Map<string, string>();
+
+async function thumb(id: string) {
+  let url = thumbs.get(id);
+  if (!url) {
+    url = URL.createObjectURL(new Blob([await ipc.skinFile(id, "sprites/idle.webp")], { type: "image/webp" }));
+    thumbs.set(id, url);
+  }
+  return url;
+}
+
+async function useSkin(id: string) {
+  skin = await loadSkin(id);
+  setVoice(skin);
+  $<HTMLImageElement>("avatar").src = await thumb(skin.meta.id);
+  await showMemory();
+}
+
+async function showSkins() {
+  const skins = await ipc.skinList();
+  const host = $("skins");
+  host.replaceChildren();
+  for (const s of skins) host.append(await skinCard(s));
+}
+
+async function skinCard(s: SkinMeta) {
+  const card = document.createElement("label");
+  card.className = "skin";
+  card.innerHTML = `<input type="radio" name="skin" /><img alt="" /><div class="info"><b></b><p class="muted small"></p></div><div class="buttons"></div>`;
+  const radio = card.querySelector("input")!;
+  radio.value = s.id;
+  radio.checked = s.id === skin.meta.id;
+  radio.addEventListener("change", async () => {
+    settings.skin = s.id;
+    await useSkin(s.id);
+    await persist();
+  });
+  card.querySelector("img")!.src = await thumb(s.id).catch(() => "");
+  const title = card.querySelector("b")!;
+  title.textContent = s.name;
+  if (s.builtin) title.insertAdjacentHTML("beforeend", `<span class="badge">内置</span>`);
+  card.querySelector("p")!.textContent = [s.author && `作者：${s.author}`, s.description].filter(Boolean).join(" · ");
+  card.title = [s.name, s.version && `版本 ${s.version}`, s.license && `许可：${s.license}`, s.description].filter(Boolean).join("\n");
+
+  const buttons = card.querySelector(".buttons")!;
+  const button = (label: string, cls: string, run: () => Promise<void>) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = label;
+    b.className = cls;
+    b.addEventListener("click", async (e) => {
+      e.preventDefault(); // don't select the card
+      try {
+        await run();
+      } catch (err) {
+        $("skinOut").textContent = `✗ ${err}`;
+      }
+    });
+    buttons.append(b);
+  };
+  button("导出", "", async () => {
+    const path = await ipc.skinExport(s.id);
+    if (path) $("skinOut").textContent = `已导出到 ${path}`;
+  });
+  if (!s.builtin) {
+    button("删除", "danger", async () => {
+      if (!confirm(`确定要删除皮肤「${s.name}」吗？它的记忆会保留，重新导入后还能找回。`)) return;
+      await ipc.skinDelete(s.id);
+      thumbs.delete(s.id);
+      if (settings.skin === s.id) {
+        settings.skin = BASE_SKIN;
+        await useSkin(BASE_SKIN);
+        await persist();
+      }
+      $("skinOut").textContent = `已删除「${s.name}」`;
+      await showSkins();
+    });
+  }
+  return card;
+}
+
+async function importSkin() {
+  const out = $("skinOut");
+  out.textContent = "";
+  let pick;
+  try {
+    pick = await ipc.skinImportPick();
+  } catch (e) {
+    out.textContent = `✗ 无法导入：${e}`;
+    return;
+  }
+  if (!pick) return;
+  if (pick.exists && !confirm(`已经有一个 id 为「${pick.id}」的皮肤了。要用「${pick.name}」替换它吗？`)) return;
+  try {
+    const meta = await ipc.skinImportInstall(pick.path);
+    thumbs.delete(meta.id);
+    out.textContent = `✓ 已导入「${meta.name}」`;
+    await showSkins();
+    // A replaced skin that is in use: reload her with the new files.
+    if (settings.skin === meta.id) {
+      await useSkin(meta.id);
+      await emit("skin-updated");
+    }
+  } catch (e) {
+    out.textContent = `✗ 无法导入：${e}`;
+  }
+}
+
 async function main() {
   settings = await loadSettings();
+  skin = await loadSkin(settings.skin);
+  setVoice(skin);
+  $<HTMLImageElement>("avatar").src = await thumb(skin.meta.id);
   fill();
-  for (const el of document.querySelectorAll("input, select")) {
+  await showSkins();
+  $("importSkin").addEventListener("click", importSkin);
+  for (const el of document.querySelectorAll("input:not([name=skin]), select")) {
     el.addEventListener("change", persist);
   }
   $("volume").addEventListener("input", persist);
   engine.configure(settings.sound);
-  loadVoiceClips();
   addPreviewButtons();
 
   if (!(await ipc.titlePermission())) {
@@ -131,7 +251,10 @@ async function main() {
         baseUrl: s.llm.baseUrl,
         apiKey: s.llm.apiKey,
         model: s.llm.model,
-        messages: [{ role: "user", content: "用一句话可爱地打个招呼，不超过 20 字。" }],
+        messages: [
+          { role: "system", content: skin.prompts.persona },
+          { role: "user", content: skin.prompts.tasks.test },
+        ],
       });
       out.textContent = `✓ ${reply}`;
     } catch (e) {
@@ -140,7 +263,7 @@ async function main() {
   });
 
   $("clear").addEventListener("click", async () => {
-    if (!confirm("确定要清空大肥鱼的全部记忆吗？她会忘记说过的话和形成的喜好。")) return;
+    if (!confirm(`确定要清空「${skin.meta.name}」的全部记忆吗？她会忘记说过的话和形成的喜好。`)) return;
     await emit("memory-cleared");
     setTimeout(showMemory, 800);
   });

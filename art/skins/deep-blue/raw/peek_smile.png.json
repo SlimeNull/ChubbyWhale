@@ -1,0 +1,65 @@
+{
+  "timestamp_utc": "2026-10-29T02:14:22.995155+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2.5-sunburst",
+      "prompt": "：眼睛微微眯起看向一旁，嘴角上扬一点点，脸颊泛起淡淡的红晕。\n必须保留：角色设计、发型、耳机、服装、画风、线条、上色方式、构图、人物在画面中的位置和大小完全不变；背景保持真实透明；无文字、无水印。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue/ref/peek.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 73.315,
+  "usage": {
+    "input_tokens": 1621,
+    "input_tokens_details": {
+      "image_tokens": 1520,
+      "text_tokens": 101
+    },
+    "output_tokens": 1930,
+    "output_tokens_details": {
+      "image_tokens": 1930,
+      "text_tokens": 0
+    },
+    "total_tokens": 3551
+  },
+  "response_metadata": {
+    "created": 1793240041,
+    "size": "1216x1294",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue/raw/peek_smile.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1216,
+        1294
+      ],
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 769781,
+      "nonopaque_pixels": 1573306,
+      "fully_transparent_fraction": 0.489215,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2.5-sunburst",
+      "reported_size": "1216x1294",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求尺寸 1024x1536，实际尺寸 1216x1294。",
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

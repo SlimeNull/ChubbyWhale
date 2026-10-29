@@ -1,0 +1,66 @@
+{
+  "timestamp_utc": "2026-10-29T02:12:31.836757+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2",
+      "prompt": "图1是男性 Q 版桌宠角色\"深海蓝调\"的正面立绘母版，角色设计以图1为准。图2是另一个角色（大肥鱼）的一张姿势图，只用来参考姿势、动作、构图、手里的道具和特效符号，不要参考她的角色设计。\n创建一张新图：画图1的角色，摆出和图2相同的姿势和动作（身体朝向、四肢位置、头的角度、道具和特效符号的位置都参考图2），人物在画面中的位置和整体大小与图2接近，头部大小与图1相同，约三头身的 Q 版比例。\n角色设计、发型（包括脑后很长的蓝色发尾）、黑色耳机和麦克风、白衬衫、藏青领带、黑色马甲和西装外套（袖子上的青色发光线条、小蓝鲸胸针）、白手套、黑色西裤、黑色皮鞋（蓝色鞋底），以及画风、线条、上色方式必须与图1一致。不要画出图2角色的女仆装、发箍、蝴蝶结、鳍状耳朵和鲸鱼尾巴。\n他的性格高冷、克制，平时表情淡漠，情绪表达比图2收敛。\n姿势与表情：为别人加油：双手握拳放在胸前，眼神认真坚定，嘴角带一点笑意，表情冷静但真诚，身体微微前倾。\n只画一个角色，完整全身入镜（除非姿势要求身体被画面边缘截断），真实透明背景，干净的主体边缘，无地面、无投影、无文字、无水印、无多视图。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue/ref/master.png",
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/raw/cheer.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 69.937,
+  "usage": {
+    "input_tokens": 3407,
+    "input_tokens_details": {
+      "image_tokens": 2960,
+      "text_tokens": 447
+    },
+    "output_tokens": 1930,
+    "output_tokens_details": {
+      "image_tokens": 1930,
+      "text_tokens": 0
+    },
+    "total_tokens": 5337
+  },
+  "response_metadata": {
+    "created": 1793239939,
+    "size": "1216x1293",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue/raw/cheer.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1216,
+        1293
+      ],
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 855687,
+      "nonopaque_pixels": 1572041,
+      "fully_transparent_fraction": 0.54423,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2",
+      "reported_size": "1216x1293",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求尺寸 1024x1536，实际尺寸 1216x1293。",
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

@@ -1,0 +1,22 @@
+{
+  "stances": {
+    "subnautica": "love",
+    "eldenring": "love",
+    "deepseek": "love",
+    "ocean": "love",
+    "minecraft": "meh",
+    "stardew": "like"
+  },
+  "random": {
+    "default": {
+      "love": 0.2,
+      "like": 0.4,
+      "meh": 0.3,
+      "dislike": 0.1
+    },
+    "ai": {
+      "meh": 0.6,
+      "dislike": 0.4
+    }
+  }
+}

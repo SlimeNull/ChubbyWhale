@@ -71,6 +71,15 @@ export function installDebug(rig: Rig, pet: Pet, fx: Fx) {
   }
   if (import.meta.env.VITE_PET_DEMO === "features") return featureTest(rig, pet, log);
   if (import.meta.env.VITE_PET_DEMO === "walk") return walkTest(rig, log);
+  if (import.meta.env.VITE_PET_DEMO === "skin") return skinTest(log);
+  if (import.meta.env.VITE_PET_DEMO === "settings") {
+    // Open the settings window (to screenshot it); the test runner closes everything.
+    setTimeout(async () => {
+      await invoke("open_settings_window");
+      log("info", ["settings opened"]);
+    }, 1500);
+    return;
+  }
   if (import.meta.env.VITE_PET_DEMO !== "1") return;
   let frames = 0;
   rig.app.ticker.add(() => frames++);
@@ -240,6 +249,40 @@ async function featureTest(rig: Rig, pet: Pet, log: (level: string, args: unknow
 }
 
 /** Docking at both screen sides, every peek motion, every activity, and gaze modes. */
+/**
+ * Install the skin package at VITE_PET_SKIN_ZIP (no file dialog), then check what
+ * loadSkin makes of it: its own files win, anything it leaves out comes from the
+ * base skin. The skin stays installed (remove it with skin_delete or by hand).
+ */
+async function skinTest(log: (level: string, args: unknown[]) => void) {
+  const { loadSkin, BASE_SKIN } = await import("./skin");
+  const zip = import.meta.env.VITE_PET_SKIN_ZIP;
+  try {
+    const meta = await ipc.skinImportInstall(zip ?? "");
+    log("info", ["skin installed", meta]);
+    log("info", ["skin list", (await ipc.skinList()).map((s) => `${s.id}${s.builtin ? " (builtin)" : ""}: ${s.name}`)]);
+    const [base, skin] = await Promise.all([loadSkin(BASE_SKIN), loadSkin(meta.id)]);
+    const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+    log("info", ["skin merge", {
+      ownChatter: skin.lines.chatter.lines,
+      pokeFromBase: same(skin.lines.poke, base.lines.poke),
+      pitch: skin.voice.pitch,
+      formantsFromBase: same(skin.voice.formants, base.voice.formants),
+      phrasesFromBase: same(skin.voice.phrases, base.voice.phrases),
+      personaOwn: skin.prompts.persona.slice(0, 20),
+      tasksFromBase: same(skin.prompts.tasks, base.prompts.tasks),
+      opinionsFromBase: same(skin.opinions, base.opinions),
+      sprites: Object.keys(skin.sprites.poses).length + Object.keys(skin.sprites.variants).length,
+      idleBytes: (await skin.sprite("idle")).size,
+      baseIdleBytes: (await base.sprite("idle")).size,
+    }]);
+    log("info", ["missing skin falls back to", (await loadSkin("no-such-skin")).meta.id]);
+  } catch (e) {
+    log("error", ["skin test", String(e)]);
+  }
+  log("info", ["skin done"]);
+}
+
 /** Walk / run into each screen edge: the whole frame must stay on screen (gap ≥ 0, physical px). */
 async function walkTest(rig: Rig, log: (level: string, args: unknown[]) => void) {
   const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));

@@ -1,6 +1,7 @@
 // Decides when she speaks up, based on what the user is doing.
 import { ipc, type Activity } from "../ipc";
 import type { Pet } from "../pet/pet";
+import { fill, type Skin } from "../skin";
 import type { Voice } from "./lines";
 import type { LlmBrain } from "./llm";
 import type { Memory, Stance } from "./memory";
@@ -28,20 +29,6 @@ const KIND_RULES: Partial<Record<Kind, { dwell: number; cooldown: number }>> = {
 
 const KIND_LINE: Partial<Record<Kind, string>> = { browser: "browse" };
 
-const KIND_DESC: Record<Kind, string> = {
-  code: "写代码",
-  terminal: "在终端里敲命令",
-  doc: "编辑文档",
-  browser: "浏览网页",
-  video: "看视频",
-  game: "玩游戏",
-  chat: "和别人聊天",
-  music: "听音乐",
-  design: "画画或做设计",
-  mail: "处理邮件",
-  other: "使用电脑",
-};
-
 export class Director {
   private current = { key: "", since: Date.now() };
   private kindSince = { kind: "other" as Kind, since: Date.now() };
@@ -57,6 +44,7 @@ export class Director {
     private memory: Memory,
     private llm: LlmBrain,
     private settings: () => Settings,
+    private skin: Skin,
   ) {
     pet.onSaid = (text, kind) => {
       this.lastRemark = Date.now();
@@ -78,8 +66,9 @@ export class Director {
   /** Tray "talk to her": always answers, LLM if available. */
   async talk() {
     const s = this.lastSituation;
-    const desc = s ? this.describe(s, 0) : "用户点了一下你，想和你说说话。";
-    if (await this.sayWithLlm(`${desc}\n用户主动想和你说说话，随便聊一句吧。`, [])) return;
+    const tasks = this.skin.prompts.tasks;
+    const desc = s ? this.describe(s, 0) : tasks.talkNoContext;
+    if (await this.sayWithLlm(`${desc}\n${tasks.talk}`, [])) return;
     this.pet.speak(chanceOf(0.5) && s && s.kind !== "other" ? (KIND_LINE[s.kind] ?? s.kind) : "chatter", { mins: 0, file: s?.file ?? "" });
   }
 
@@ -126,7 +115,7 @@ export class Director {
 
     // 3) Otherwise an occasional bit of chatter.
     if (now - this.lastRemark > gap * 2 && chanceOf(0.15)) {
-      if (await this.sayWithLlm(`${this.describe(sit, kindDwell)}\n随便说一句闲聊或关心的话。`, [])) return;
+      if (await this.sayWithLlm(`${this.describe(sit, kindDwell)}\n${this.skin.prompts.tasks.chatter}`, [])) return;
       this.pet.speak(chanceOf(0.3) ? "missYou" : "chatter");
     }
   }
@@ -143,11 +132,18 @@ export class Director {
   private describe(sit: Situation, secs: number) {
     const share = this.settings().llm.shareTitles;
     const mins = Math.round(secs / 60);
-    const parts = [`用户正在${KIND_DESC[sit.kind]}（应用：${sit.app || "未知"}${mins ? `，已经持续约 ${mins} 分钟` : ""}）。`];
-    if (share && sit.title) parts.push(`窗口标题：「${sit.title.slice(0, 120)}」。`);
-    if (sit.file) parts.push(`正在编辑的文件：${sit.file}。`);
-    if (sit.topics.length) parts.push(`识别到的话题：${sit.topics.map((t) => t.label).join("、")}。`);
-    if (sit.price) parts.push(`页面上的价格：${sit.price}。`);
+    const p = this.skin.prompts.situation;
+    const parts = [
+      fill(p.doing, {
+        kind: p.kinds[sit.kind] ?? p.kinds.other ?? sit.kind,
+        app: sit.app || p.unknownApp,
+        duration: mins ? fill(p.duration, { mins }) : "",
+      }),
+    ];
+    if (share && sit.title) parts.push(fill(p.title, { title: sit.title.slice(0, 120) }));
+    if (sit.file) parts.push(fill(p.file, { file: sit.file }));
+    if (sit.topics.length) parts.push(fill(p.topics, { topics: sit.topics.map((t) => t.label).join("、") }));
+    if (sit.price) parts.push(fill(p.price, { price: sit.price }));
     return parts.join("");
   }
 
@@ -166,13 +162,15 @@ export class Director {
   }
 
   private async commentTopic(sit: Situation, topic: Topic, dwell: number) {
-    // Games, the ocean and AIs get a stance that is fixed the first time it comes up.
-    const opinionated = topic.type === "game" || topic.type === "ai" || topic.stance;
-    const op = opinionated ? this.memory.decide(topic.id, topic.label, () => topic.stance ?? pickStance(topic)) : undefined;
+    // Games, AIs and topics the skin has a stance on get a stance that is fixed the first time it comes up.
+    const preset = this.skin.opinions.stances[topic.id];
+    const opinionated = topic.type === "game" || topic.type === "ai" || preset;
+    const op = opinionated ? this.memory.decide(topic.id, topic.label, () => preset ?? pickStance(topic, this.skin.opinions)) : undefined;
     const again = !!op && op.mentions > 0;
 
     const known = op ? [{ id: topic.id, label: topic.label, stance: op.stance }] : [{ id: topic.id, label: topic.label }];
-    const hint = op ? `请对"${topic.label}"发表一句评价${again ? "（你以前评价过它，可以提到这一点）" : ""}。` : `请针对"${topic.label}"说一句话。`;
+    const tasks = this.skin.prompts.tasks;
+    const hint = fill(op ? (again ? tasks.opinionAgain : tasks.opinion) : tasks.topic, { label: topic.label });
     if (await this.sayWithLlm(`${this.describe(sit, dwell)}\n${hint}`, known)) return;
 
     let line;
@@ -188,7 +186,7 @@ export class Director {
 
   private async commentKind(sit: Situation, secs: number) {
     const mins = Math.round(secs / 60);
-    if (await this.sayWithLlm(`${this.describe(sit, secs)}\n请对用户正在做的事说一句话（鼓励、好奇或关心）。`, [])) return;
+    if (await this.sayWithLlm(`${this.describe(sit, secs)}\n${this.skin.prompts.tasks.kind}`, [])) return;
     let kind = KIND_LINE[sit.kind] ?? sit.kind;
     if (sit.kind === "code" && mins >= 60 && chanceOf(0.6)) kind = "codeLong";
     else if (sit.kind === "code" && sit.file && chanceOf(0.5)) kind = "codeFile";

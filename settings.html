@@ -9,12 +9,23 @@
   <body>
     <main>
       <header>
-        <img src="/sprites/idle.webp" alt="" />
+        <img id="avatar" alt="" />
         <div>
           <h1>大肥鱼 · 设置</h1>
           <p class="muted">Chubby Whale 桌面宠物</p>
         </div>
       </header>
+
+      <section>
+        <h2>皮肤</h2>
+        <p class="muted small">每个皮肤有自己的形象、性格（台词和喜好）和声音，也有自己的记忆。</p>
+        <div id="skins" class="skins" role="radiogroup" aria-label="皮肤"></div>
+        <div class="actions">
+          <button id="importSkin" type="button">导入皮肤…</button>
+          <span id="skinOut" class="muted small"></span>
+        </div>
+        <p class="muted small">想做自己的皮肤？导出「标准大肥鱼」当作模板，替换里面的图片、台词和声音参数，在 skin.json 里换一个 id 和名字，再打包成 zip 导入。</p>
+      </section>
 
       <section>
         <h2>外观</h2>
@@ -36,7 +47,7 @@
           <output id="volumeOut"></output>
         </label>
         <label class="row check"><input id="effects" type="checkbox" /> 音效（弹跳、落地、眩晕……）</label>
-        <label class="row check"><input id="voice" type="checkbox" /> 大肥鱼的声音（用语气表达情绪，不说具体的话）</label>
+        <label class="row check"><input id="voice" type="checkbox" /> 她的声音（用语气表达情绪，不说具体的话；由皮肤决定）</label>
         <details>
           <summary>试听</summary>
           <p class="muted small">音效</p>
@@ -81,10 +92,10 @@
 
       <section>
         <h2>记忆</h2>
-        <p class="muted">大肥鱼表达过的喜好会被记住，之后不会自相矛盾。</p>
+        <p class="muted">她表达过的喜好会被记住，之后不会自相矛盾。每个皮肤的记忆分开保存，下面是「<span id="memorySkin"></span>」的。</p>
         <ul id="opinions" class="opinions"></ul>
         <div class="actions">
-          <button id="clear" type="button" class="danger">清空记忆</button>
+          <button id="clear" type="button" class="danger">清空这个皮肤的记忆</button>
           <span id="dataDir" class="muted small"></span>
         </div>
       </section>

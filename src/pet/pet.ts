@@ -14,6 +14,7 @@ import { GazeController } from "./gaze";
 import type { PoseName, Rig } from "./rig";
 
 export type Emotion = "neutral" | "happy" | "cheer" | "curious" | "shocked" | "shy" | "look" | "hurt" | "sleepy" | "watch";
+export const EMOTIONS: Emotion[] = ["neutral", "happy", "cheer", "curious", "shocked", "shy", "look", "hurt", "sleepy", "watch"];
 
 const EMOTION_POSE: Record<Emotion, PoseName> = {
   neutral: "idle",
@@ -141,9 +142,6 @@ const ON_FLOOR: Place[] = ["floor"];
 const DOCKED: Place[] = ["left", "right"];
 const ANYWHERE: Place[] = ["floor", "left", "right"];
 
-// Distance between the feet in walk_a / run_a when she is 230px tall, in px (see wander()).
-const WALK_STRIDE = 72;
-const RUN_STRIDE = 100;
 const WALK_STEPS_PER_SEC = 2;
 const RUN_STEPS_PER_SEC = 4;
 
@@ -571,9 +569,10 @@ export class Pet {
     const size = this.rig.height / 230;
     // Move exactly one stride per step so the planted foot doesn't slide.
     // Strides are the distance between the feet in walk_a / run_a when she is
-    // 230px tall (measure with the snippet in docs/STRUCTURE.md if the art changes).
+    // 230px tall; they depend on the art, so each skin's sprite manifest has them.
     const stepsPerSec = run ? RUN_STEPS_PER_SEC : WALK_STEPS_PER_SEC;
-    const speed = (run ? RUN_STRIDE : WALK_STRIDE) * stepsPerSec * size;
+    const { walkStride, runStride } = this.rig.motion;
+    const speed = (run ? runStride : walkStride) * stepsPerSec * size;
     const dist = (run ? rand(220, 420) : rand(120, 320)) * size;
     // Keep the whole walk / run frame on screen, not just the (narrower) body.
     const frames = run ? ["run_a", "run_b"] : ["walk_a", "walk_pass", "walk_b"];

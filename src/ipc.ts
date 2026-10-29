@@ -24,6 +24,27 @@ export interface MotionEvent {
   side: "" | "left" | "right" | "top" | "bottom";
 }
 
+export type StoreName = "settings" | "memory" | `memory-${string}`;
+
+export interface SkinMeta {
+  id: string;
+  name: string;
+  author: string;
+  version: string;
+  description: string;
+  license: string;
+  format: number;
+  /** Ships with the app (can't be deleted or replaced). */
+  builtin: boolean;
+}
+
+/** A checked skin package, not installed yet. */
+export interface SkinImport extends Omit<SkinMeta, "builtin"> {
+  path: string;
+  /** An imported skin with this id exists and will be replaced. */
+  exists: boolean;
+}
+
 export const ipc = {
   activity: () => invoke<Activity>("activity"),
   titlePermission: () => invoke<boolean>("title_permission"),
@@ -46,9 +67,20 @@ export const ipc = {
   /** Slide so window-local x `edgeX` sits on that screen edge; `top..bottom` stays on screen. */
   dock: (side: "left" | "right", edgeX: number, top: number, bottom: number) => invoke<void>("dock", { side, edgeX, top, bottom }),
 
-  storeLoad: <T>(name: "settings" | "memory") => invoke<T | null>("store_load", { name }),
-  storeSave: (name: "settings" | "memory", value: unknown) => invoke<void>("store_save", { name, value }),
+  /** "memory-<skin id>": that skin's memory; "memory": the file from before skins (migration only). */
+  storeLoad: <T>(name: StoreName) => invoke<T | null>("store_load", { name }),
+  storeSave: (name: StoreName, value: unknown) => invoke<void>("store_save", { name, value }),
   dataDir: () => invoke<string>("data_dir"),
+  skinList: () => invoke<SkinMeta[]>("skin_list"),
+  /** Raw bytes of `path` (e.g. "sprites/idle.webp") in skin `id`. */
+  skinFile: (id: string, path: string) => invoke<ArrayBuffer>("skin_file", { id, path }),
+  /** Ask for a .zip and check it; null if the dialog was cancelled. */
+  skinImportPick: () => invoke<SkinImport | null>("skin_import_pick"),
+  skinImportInstall: (path: string) => invoke<Omit<SkinMeta, "builtin">>("skin_import_install", { path }),
+  /** Save skin `id` as a .zip; resolves to the path, or null if cancelled. */
+  skinExport: (id: string) => invoke<string | null>("skin_export", { id }),
+  skinDelete: (id: string) => invoke<void>("skin_delete", { id }),
+
   /** Append a line to frontend.log in the app log dir. */
   logError: (line: string) => invoke<void>("log_error", { line }).catch(() => {}),
 

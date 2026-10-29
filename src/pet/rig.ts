@@ -1,6 +1,7 @@
 // Renders Chubby Whale as a deformable mesh so a single illustration can
 // breathe, lean, squash and dangle — a lightweight, Live2D-style puppet.
-import { Application, Assets, Container, Graphics, MeshPlane, Rectangle, Texture } from "pixi.js";
+import { Application, Container, Graphics, ImageSource, MeshPlane, Rectangle, Texture } from "pixi.js";
+import type { Skin, SpriteMeta } from "../skin";
 
 export type PoseName =
   | "idle"
@@ -48,17 +49,6 @@ export type PoseName =
 /** Eye direction on the idle pose (screen directions); "" = straight ahead. */
 export type Gaze = "" | "l" | "r" | "u" | "d" | "ul" | "ur" | "dl" | "dr";
 
-interface SpriteMeta {
-  w: number;
-  h: number;
-  /** Horizontal anchor (0..1): center of the head, which reads as the body center. */
-  ax: number;
-}
-
-interface Manifest {
-  poses: Record<string, SpriteMeta>;
-  variants: Record<string, SpriteMeta>;
-}
 
 /** Critically-damped-ish spring used for squash & stretch and wobbles. */
 class Spring {
@@ -136,7 +126,12 @@ export class Rig {
   hop = 0; // px, vertical offset for little jumps
   private hopV = 0;
 
-  async init(canvasHost: HTMLElement) {
+  /** Walk / run strides of the skin's art (see SpriteManifest.motion). */
+  motion = { walkStride: 83, runStride: 105 };
+
+  /** Set up the canvas and load the skin's sprites. */
+  async init(canvasHost: HTMLElement, skin: Skin) {
+    if (skin.sprites.motion) this.motion = skin.sprites.motion;
     await this.app.init({
       backgroundAlpha: 0,
       resizeTo: window,
@@ -147,17 +142,19 @@ export class Rig {
     });
     canvasHost.appendChild(this.app.canvas);
 
-    const manifest: Manifest = await (await fetch("/sprites/manifest.json")).json();
-    const entries = { ...manifest.poses, ...manifest.variants };
+    // Sprites come as bytes from the skin (not URLs), decoded the way Pixi's own loader does.
+    const entries = { ...skin.sprites.poses, ...skin.sprites.variants };
     await Promise.all(
       Object.entries(entries).map(async ([name, meta]) => {
-        const tex = await Assets.load<Texture>({
-          // Absolute URL: Pixi resolves "/sprites/…" against tauri://localhost (release
-          // builds) as tauri://sprites/…, which doesn't exist.
-          src: new URL(`/sprites/${name}.webp`, location.href).href,
-          data: { autoGenerateMipmaps: true, scaleMode: "linear" },
+        const bitmap = await createImageBitmap(await skin.sprite(name));
+        const source = new ImageSource({
+          resource: bitmap,
+          alphaMode: "premultiply-alpha-on-upload",
+          autoGenerateMipmaps: true,
+          scaleMode: "linear",
+          label: name,
         });
-        this.textures.set(name, tex);
+        this.textures.set(name, new Texture({ source, label: name }));
         this.meta.set(name, meta);
       }),
     );

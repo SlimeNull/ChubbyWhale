@@ -1,0 +1,65 @@
+{
+  "timestamp_utc": "2026-10-29T02:15:54.568335+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2.5-sunburst",
+      "prompt": "这是一次修图。图1是编辑目标：男性角色坐在地上，一手捧着饭碗、一手拿筷子吃饭。\n保持构图、姿势、饭碗和筷子的位置、人物位置和大小完全不变，只修改：把筷子夹着的米饭送进嘴里咬住，眼睛闭起来，表情满足但克制。\n必须保留：角色设计、发型、耳机、服装、画风、线条、上色方式、构图、人物在画面中的位置和大小完全不变；背景保持真实透明；无文字、无水印。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue/ref/eat.png"
+    ],
+    "mask": null
+  },
+  "elapsed_seconds": 126.682,
+  "usage": {
+    "input_tokens": 1678,
+    "input_tokens_details": {
+      "image_tokens": 1520,
+      "text_tokens": 158
+    },
+    "output_tokens": 1930,
+    "output_tokens_details": {
+      "image_tokens": 1930,
+      "text_tokens": 0
+    },
+    "total_tokens": 3608
+  },
+  "response_metadata": {
+    "created": 1793240087,
+    "size": "1216x1294",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue/raw/eat_b.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1216,
+        1294
+      ],
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 671068,
+      "nonopaque_pixels": 1572706,
+      "fully_transparent_fraction": 0.42648,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2.5-sunburst",
+      "reported_size": "1216x1294",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求尺寸 1024x1536，实际尺寸 1216x1294。",
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

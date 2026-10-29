@@ -3,6 +3,7 @@ mod llm;
 #[cfg(target_os = "macos")]
 mod macos;
 mod motion;
+mod skins;
 mod store;
 
 use tauri::image::Image;
@@ -104,6 +105,7 @@ fn open_settings_window(app: AppHandle) -> tauri::Result<()> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(motion::Motion::new())
         .invoke_handler(tauri::generate_handler![
             activity::activity,
@@ -126,6 +128,12 @@ pub fn run() {
             store::data_dir,
             store::log_error,
             store::debug_dump,
+            skins::skin_list,
+            skins::skin_file,
+            skins::skin_import_pick,
+            skins::skin_import_install,
+            skins::skin_export,
+            skins::skin_delete,
             llm::llm_chat,
             show_menu,
             open_settings_window,

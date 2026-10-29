@@ -27,8 +27,9 @@
 
 - `src-tauri/src/motion.rs`：持有 `State` 锁时**绝不能**调用任何窗口 API，否则会和主线程死锁（实际发生过：丢出去时卡死）。motion 相关的命令必须是 `async`。
 - 前端 `pointerup` 必须先等 `dragBegin` 完成，再调用 `dragEnd`。
-- 交给 PixiJS 加载的资源地址必须是绝对 URL，否则 macOS 正式版（`tauri://localhost`）贴图全部加载失败。
-- `public/sprites/` 是构建产物。美术改 `art/` 下的源文件，然后运行 `python art/build_sprites.py`。
+- 贴图以字节形式经 `skin_file` 读取，不走 URL。如果别处要用 PixiJS 加载 URL，地址必须是绝对 URL，否则 macOS 正式版（`tauri://localhost`）会全部加载失败。
+- 性格、台词、声音和提示词属于皮肤（`skins/<id>/`），不要再写回代码。新增台词类别、提示词字段或声音参数时，同时更新 `skins/standard/` 和 `src/skin.ts`，并保证缺少它的旧皮肤能用标准皮肤补齐（见 STRUCTURE.md「皮肤」）。
+- `skins/*/sprites/` 是构建产物。美术改 `art/`（标准皮肤）或 `art/skins/<id>/` 下的源文件，然后运行 `python art/build_sprites.py <皮肤 id>`。
 - 美术素材许可为 CC BY-NC-SA 4.0（禁止商用），代码许可为 GPL-3.0-or-later。不要引入和这两个许可冲突的依赖或素材（例如闭源的 Live2D Cubism Core）。
 
 ## 判断美术效果时：先生成参考图再对比
@@ -42,6 +43,8 @@ agent 直接看图来判断「眼神、表情、姿势自不自然」并不可�
 
 参考图放在 `art/ref/look/`（不参与构建）。
 
+能测量的就不要目测。比如各姿势的头部大小，用 `python art/measure_heads.py` 测量后再设 `POSES` 的 scale（做法见 STRUCTURE.md「美术流水线」第 3 条）；目测定的 scale 曾让探头时的她比平时大了约 20%。
+
 ## 改完之后的检查
 
 - `pnpm build`（tsc 类型检查加 vite 构建）
@@ -49,4 +52,5 @@ agent 直接看图来判断「眼神、表情、姿势自不自然」并不可�
 - 涉及拖拽、抛掷或窗口移动的改动：运行 `VITE_PET_DEMO=throw pnpm tauri dev`，确认 `debug/log.txt` 里 6 次都落地，并且没有 `STALL`
 - 测试实例要用 1430 端口启动，结束时只结束自己启动的进程，不要动用户正在跑的实例（做法见 STRUCTURE.md「开发和调试」）
 - 涉及渲染或姿势的改动：运行 `VITE_PET_DEMO=1 pnpm tauri dev`，查看 `debug/snap-*.png`
-- 涉及资源加载（贴图、声音、manifest 路径）、Vite 构建配置或发版之前：打包检查，开发版不会暴露这类问题（曾经出现过正式版窗口全空，做法见 STRUCTURE.md「检查正式包」）
+- 涉及皮肤（格式、加载、导入导出）的改动：`cargo test --lib skins`，再跑 `VITE_PET_DEMO=skin`（做法见 STRUCTURE.md「开发和调试」）
+- 涉及资源加载（贴图、声音、皮肤路径）、打包配置、Vite 构建配置或发版之前：打包检查，开发版不会暴露这类问题（曾经出现过正式版窗口全空，做法见 STRUCTURE.md「检查正式包」）

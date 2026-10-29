@@ -1,0 +1,65 @@
+{
+  "timestamp_utc": "2026-10-29T02:21:00.936909+00:00",
+  "request": {
+    "endpoint": "<image-api>/images/edits",
+    "payload": {
+      "model": "gpt-image-2.5-sunburst",
+      "prompt": "这是一次局部修图。图1是编辑目标。\n只修改蒙版透明区域：让角色的两只眼睛一起看向画面左方——两只眼睛的瞳孔和高光朝画面左方移动（大约瞳孔宽度的三分之一），两只眼睛的视线保持平行，看向同一个方向，绝对不要对眼（斗鸡眼）或者两眼分开。眼睛保持原来半垂、冷淡的眼型，大小、颜色、睫毛和周围的刘海不变。\n必须保留：脸型、头发、嘴巴、画风、线条粗细、上色方式、颜色、构图和人物位置完全不变；背景保持真实透明。\n避免：改动蒙版外的任何内容、闭眼、添加文字或水印。",
+      "size": "1024x1536",
+      "quality": "high",
+      "output_format": "png",
+      "n": 1,
+      "background": "transparent"
+    },
+    "images": [
+      "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue/ref/master.png"
+    ],
+    "mask": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue/ref/mask_eyes.png"
+  },
+  "elapsed_seconds": 49.504,
+  "usage": {
+    "input_tokens": 1685,
+    "input_tokens_details": {
+      "image_tokens": 1480,
+      "text_tokens": 205
+    },
+    "output_tokens": 1930,
+    "output_tokens_details": {
+      "image_tokens": 1930,
+      "text_tokens": 0
+    },
+    "total_tokens": 3615
+  },
+  "response_metadata": {
+    "created": 1793240446,
+    "size": "1216x1293",
+    "quality": "medium",
+    "background": "transparent",
+    "output_format": "png"
+  },
+  "outputs": [
+    {
+      "path": "/Users/slimenull/Documents/Projects/DeepSeekPet/art/skins/deep-blue/raw/gaze/l-1.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "size": [
+        1216,
+        1293
+      ],
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "transparent_pixels": 1016837,
+      "nonopaque_pixels": 1571358,
+      "fully_transparent_fraction": 0.646724,
+      "has_visible_content": true,
+      "reported_model": "gpt-image-2.5-sunburst",
+      "reported_size": "1216x1293",
+      "revised_prompt": null
+    }
+  ],
+  "warnings": [
+    "请求尺寸 1024x1536，实际尺寸 1216x1293。",
+    "请求 quality=high，响应标注 quality=medium。"
+  ],
+  "validation_errors": []
+}

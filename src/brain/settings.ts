@@ -8,6 +8,8 @@ export type PetSize = "small" | "medium" | "large";
 export const SIZE_SCALE: Record<PetSize, number> = { small: 0.55, medium: 0.75, large: 1 };
 
 export interface Settings {
+  /** Id of the skin she wears (skins/<id>/ or an imported one). */
+  skin: string;
   size: PetSize;
   /** Watch the foreground app / window title and comment on it. */
   activityAware: boolean;
@@ -26,6 +28,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  skin: "standard",
   size: "medium",
   activityAware: true,
   commentOnPages: true,
@@ -52,6 +55,7 @@ export async function loadSettings(): Promise<Settings> {
   return {
     ...DEFAULT_SETTINGS,
     ...saved,
+    skin: typeof saved.skin === "string" && saved.skin ? saved.skin : DEFAULT_SETTINGS.skin,
     size: migrateSize(saved.size),
     sound: { ...DEFAULT_SETTINGS.sound, ...(saved.sound ?? {}) },
     llm: { ...DEFAULT_SETTINGS.llm, ...(saved.llm ?? {}) },

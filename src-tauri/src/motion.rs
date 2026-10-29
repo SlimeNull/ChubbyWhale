@@ -610,7 +610,7 @@ pub async fn dock(window: WebviewWindow, motion: tauri::State<'_, Motion>, side:
 /// center) where they are. Base size matches tauri.conf.json.
 #[tauri::command]
 pub async fn set_pet_scale(window: WebviewWindow, factor: f64) -> tauri::Result<()> {
-    const BASE: (f64, f64) = (270.0, 290.0);
+    const BASE: (f64, f64) = (332.0, 290.0);
     let k = scale(&window);
     let pos = window.outer_position()?;
     let size = window.outer_size()?;

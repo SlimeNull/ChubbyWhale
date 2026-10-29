@@ -1,6 +1,8 @@
 // Long-term memory: what she has said, and opinions she must stay consistent with.
-// Persisted as memory.json in the app data directory.
-import { ipc } from "../ipc";
+// Each skin is its own character with its own memory: memory-<skin id>.json in
+// the app data directory.
+import { ipc, type StoreName } from "../ipc";
+import { BASE_SKIN } from "../skin";
 
 export type Stance = "love" | "like" | "meh" | "dislike";
 
@@ -51,20 +53,33 @@ function empty(): MemoryData {
   };
 }
 
+/** Store name of a skin's memory. */
+export const memoryStore = (skinId: string): StoreName => `memory-${skinId}`;
+
+/** A skin's saved memory. The base skin inherits memory.json from before skins existed. */
+export async function loadMemoryData(skinId: string): Promise<MemoryData | null> {
+  const saved = await ipc.storeLoad<MemoryData>(memoryStore(skinId)).catch(() => null);
+  if (saved || skinId !== BASE_SKIN) return saved;
+  return ipc.storeLoad<MemoryData>("memory").catch(() => null);
+}
+
 export class Memory {
   data: MemoryData = empty();
   private saveTimer = 0;
 
+  constructor(private skinId: string) {}
+
   async load() {
-    const saved = await ipc.storeLoad<MemoryData>("memory").catch(() => null);
+    const saved = await loadMemoryData(this.skinId);
     if (saved && saved.version === 1) this.data = { ...empty(), ...saved, stats: { ...empty().stats, ...saved.stats } };
-    else this.save();
+    // Also writes memory-<id>.json the first time (e.g. right after inheriting memory.json).
+    this.save();
   }
 
   save() {
     clearTimeout(this.saveTimer);
     this.saveTimer = window.setTimeout(() => {
-      ipc.storeSave("memory", this.data).catch((e) => console.warn("memory save failed", e));
+      ipc.storeSave(memoryStore(this.skinId), this.data).catch((e) => console.warn("memory save failed", e));
     }, 400);
   }
 

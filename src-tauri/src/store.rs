@@ -1,4 +1,5 @@
-//! Tiny JSON document store in the app data directory (settings, memory).
+//! Tiny JSON document store in the app data directory: settings, and one memory
+//! per skin (`memory-<skin id>`; `memory` is the pre-skin file, read once to migrate).
 
 use std::fs;
 use std::path::PathBuf;
@@ -9,7 +10,8 @@ use tauri::{AppHandle, Manager};
 const NAMES: &[&str] = &["settings", "memory"];
 
 fn path(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
-    if !NAMES.contains(&name) {
+    let per_skin = name.strip_prefix("memory-").is_some_and(crate::skins::valid_id);
+    if !NAMES.contains(&name) && !per_skin {
         return Err(format!("unknown store: {name}"));
     }
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;

@@ -9,7 +9,8 @@ Usage (from repo root, needs ffmpeg with rubberband):
   python art/voice/build_voice.py --pitch 1.15    # raise pitch 15%, keep formants (sounds younger, not chipmunk)
 
 Each clip is trimmed of leading/trailing silence, loudness-normalized, faded
-in/out and encoded to mono MP3 in public/voice/, plus public/voice/manifest.json.
+in/out and encoded to mono MP3 in skins/standard/voice/, and listed under "clips" in
+skins/standard/voice.json (the rest of that file is left as it is).
 """
 
 import argparse
@@ -21,7 +22,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 RAW = Path(__file__).resolve().parent / "raw"
-OUT = ROOT / "public" / "voice"
+SKIN = ROOT / "skins" / "standard"
+OUT = SKIN / "voice"
 KINDS = ["neutral", "happy", "giggle", "surprised", "curious", "shy", "hurt", "cry", "dizzy",
          "sleepy", "cheer", "angry", "scared", "fly", "hum", "sigh"]
 NAME_RE = re.compile(r"^([a-z]+)-(\d+)\.(wav|mp3|m4a|flac|ogg)$")
@@ -72,7 +74,14 @@ def main():
         build(src, dst, args.pitch)
         manifest[kind].append(dst.name)
         print(f"{src.name} → {dst.name}")
-    (OUT / "manifest.json").write_text(json.dumps(dict(sorted(manifest.items())), indent=2, ensure_ascii=False))
+    # Only "clips" changes; replace that one line so the hand-formatted file stays readable.
+    voice_json = SKIN / "voice.json"
+    text = voice_json.read_text()
+    clips = json.dumps(dict(sorted(manifest.items())), ensure_ascii=False)
+    text, n = re.subn(r'^  "clips": .*$', lambda _: f'  "clips": {clips},', text, count=1, flags=re.M)
+    assert n == 1, 'voice.json has no "clips" line'
+    json.loads(text)
+    voice_json.write_text(text)
     missing = [k for k in KINDS if k not in manifest]
     print(f"{sum(map(len, manifest.values()))} clips; synthesized fallback for: {', '.join(missing) or 'none'}")
 

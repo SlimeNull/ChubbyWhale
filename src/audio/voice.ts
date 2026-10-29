@@ -1,7 +1,9 @@
 // Wordless "character voice": short emotive interjections.
-// Recorded clips in public/voice/ (see manifest.json, built by art/voice/build_voice.py)
-// are used when available; otherwise a tiny formant synthesizer strings
-// vowel-like syllables together and the pitch contour carries the emotion.
+// Everything about the voice comes from the skin's voice.json (VoiceProfile):
+// recorded clips in the skin's voice/ folder are used when it lists them;
+// otherwise a tiny formant synthesizer strings vowel-like syllables together
+// and the pitch contour carries the emotion.
+import type { Skin } from "../skin";
 import { engine, jitter } from "./engine";
 
 export type VoiceKind =
@@ -26,7 +28,8 @@ export const VOICE_KINDS: VoiceKind[] = ["neutral", "happy", "giggle", "surprise
 
 type Vowel = "a" | "i" | "u" | "e" | "o" | "m" | "n";
 
-interface Syl {
+/** One syllable of a phrase (voice.json "phrases"). */
+export interface Syl {
   /** Vowel, or a glide "u>a". */
   v: string;
   /** Duration in seconds. */
@@ -45,103 +48,81 @@ interface Syl {
   gap?: number;
 }
 
-// Formants (Hz) for a small, bright voice.
-const FORMANTS: Record<Vowel, [number, number, number]> = {
-  a: [1050, 1650, 3300],
-  i: [380, 2900, 3800],
-  u: [420, 1150, 2700],
-  e: [600, 2450, 3500],
-  o: [580, 980, 3000],
-  m: [280, 1300, 2500],
-  n: [300, 1600, 2600],
-};
-const FORMANT_GAIN = [1, 0.55, 0.25];
-const FORMANT_BW = [160, 140, 200];
-const ONSET_VOWEL: Partial<Record<NonNullable<Syl["c"]>, Vowel>> = { m: "m", w: "u", y: "i" };
+/** A skin's voice.json. */
+export interface VoiceProfile {
+  /** Base pitch, Hz, and its random variation per phrase (fraction). */
+  pitch: number;
+  pitchJitter: number;
+  /** Speed multiplier for syllable lengths, and its variation. */
+  tempo: number;
+  tempoJitter: number;
+  /** Low-pass cutoff on the whole voice, Hz: lower is softer. */
+  brightness: number;
+  /** How fast the source's harmonics fall off (1 = sawtooth; higher is duller). */
+  rolloff: number;
+  vibratoRate: number;
+  /** Default vibrato depth (fraction of pitch) and breathiness for syllables that don't set one. */
+  vibratoDepth: number;
+  breath: number;
+  /** F1–F3 per vowel, Hz. */
+  formants: Record<Vowel, [number, number, number]>;
+  formantGain: [number, number, number];
+  formantBandwidth: [number, number, number];
+  /** Pitch multipliers the hummed tune ("hum") walks on. */
+  humScale: number[];
+  /** Recorded clips per kind, files in the skin's voice/ folder. */
+  clips: Partial<Record<VoiceKind, string[]>>;
+  /** Alternative phrases per kind; one is picked at random each time. "hum" is generated. */
+  phrases: Partial<Record<VoiceKind, Syl[][]>>;
+}
 
-const BASE_PITCH = 520;
+let profile: VoiceProfile | null = null;
+
+/** Use this skin's voice from now on. */
+export function setVoice(skin: Skin) {
+  profile = skin.voice;
+  void loadVoiceClips(skin);
+}
+
+const ONSET_VOWEL: Partial<Record<NonNullable<Syl["c"]>, Vowel>> = { m: "m", w: "u", y: "i" };
+const VOWELS: Vowel[] = ["a", "i", "u", "e", "o", "m", "n"];
 
 const S = (v: string, d: number, p: number[], o: Omit<Syl, "v" | "d" | "p"> = {}): Syl => ({ v, d, p, ...o });
 
-/** Several alternative phrases per emotion; one is picked at random each time. */
-const PHRASES: Record<VoiceKind, () => Syl[][]> = {
-  neutral: () => [[S("n", 0.16, [1, 1.08])], [S("a", 0.14, [1, 1.1], { c: "h" })], [S("e", 0.12, [1, 1.05]), S("o", 0.14, [1.05, 0.95])]],
-  happy: () => [
-    [S("a", 0.11, [1.15, 1.3], { c: "h" }), S("a", 0.16, [1.35, 1.2], { c: "h" })],
-    [S("i>a", 0.26, [1, 1.45, 1.3], { c: "y" })],
-    [S("u>a", 0.14, [1.1, 1.3], { c: "w" }), S("i", 0.18, [1.4, 1.5, 1.35])],
-  ],
-  giggle: () => [
-    [0, 1, 2, 3].map((k) => S("e", 0.07, [1.45 - k * 0.07, 1.4 - k * 0.07], { c: k ? "h" : undefined, gap: 0.03 })),
-    [S("u", 0.08, [1.3, 1.25], { c: "f" }), S("u", 0.08, [1.35, 1.28], { c: "f" }), S("u", 0.1, [1.25, 1.15], { c: "f" })],
-  ],
-  surprised: () => [[S("a", 0.24, [0.95, 1.65])], [S("u>a", 0.2, [1.1, 1.6], { c: "w" })], [S("e", 0.22, [1, 1.55])]],
-  curious: () => [[S("m", 0.3, [0.95, 0.92, 1.35])], [S("e", 0.22, [1, 1.4])], [S("n", 0.12, [1, 1]), S("u", 0.18, [1.05, 1.4])]],
-  shy: () => [
-    [S("u", 0.34, [1.1, 0.98, 1.06], { a: 0.55, vib: 0.03 })],
-    [S("e", 0.08, [1.15, 1.1], { a: 0.5, c: "h" }), S("e", 0.1, [1.1, 1], { a: 0.45, c: "h" }), S("e", 0.12, [1, 0.95], { a: 0.4 })],
-    [S("a>u", 0.3, [1.05, 0.95], { a: 0.5, breath: 0.4 })],
-  ],
-  hurt: () => [
-    [S("u", 0.09, [1.25, 1.2]), S("u>a", 0.38, [1.35, 1, 0.75], { vib: 0.05 })],
-    [S("i", 0.09, [1.3, 1.3], { c: "t" }), S("a", 0.12, [1.25, 1.1], { c: "t" }), S("i", 0.2, [1, 0.8])],
-    [S("a>u", 0.42, [1.3, 0.8], { vib: 0.04 })],
-  ],
-  cry: () => [
-    [S("u>a", 0.35, [1.3, 1.4, 1.1], { vib: 0.08, c: "w" }), S("a>u", 0.4, [1.4, 1.2, 0.9], { vib: 0.08 })],
-    [S("e", 0.3, [1.35, 1], { vib: 0.09 }), S("e", 0.35, [1.3, 0.9], { vib: 0.09, c: "h" })],
-  ],
-  dizzy: () => [
-    [S("u", 0.18, [1.1, 0.85]), S("e", 0.18, [0.95, 0.8]), S("u", 0.3, [0.9, 0.7], { vib: 0.06 })],
-    [S("a>u", 0.55, [1.1, 1.25, 0.9, 1.05, 0.7], { vib: 0.03 })],
-  ],
-  sleepy: () => [
-    [S("u>a", 0.55, [1, 1.08, 0.75], { c: "f", breath: 0.5 }), S("a", 0.25, [0.75, 0.65], { a: 0.5, breath: 0.6 })],
-    [S("m", 0.45, [0.9, 0.8], { a: 0.5, breath: 0.3 })],
-  ],
-  cheer: () => [
-    [S("i>a", 0.16, [1.15, 1.45], { c: "y" }), S("o", 0.18, [1.5, 1.4], { c: "h" })],
-    [S("e", 0.08, [1.2, 1.25], { c: "h" }), S("i", 0.2, [1.35, 1.55, 1.45], { c: "y" })],
-    [S("a", 0.2, [1.2, 1.55], { c: "y" })],
-  ],
-  angry: () => [
-    [S("m", 0.12, [0.9, 0.95]), S("u", 0.28, [0.95, 1, 0.88], { vib: 0.03 })],
-    [S("m", 0.22, [1, 0.85], { c: "h", breath: 0.3 })],
-    [S("u", 0.1, [1, 1.05], { c: "m" }), S("u", 0.14, [1.1, 1], { c: "m" })],
-  ],
-  scared: () => [
-    [0, 1, 2].map(() => S("u>a", 0.1, [1.35, 1.5], { c: "w", gap: 0.03 })),
-    [S("i>a", 0.22, [1.45, 1.75, 1.6], { c: "k" })],
-    [S("a", 0.4, [1.4, 1.6, 1.4], { vib: 0.07, c: "w" })],
-  ],
-  fly: () => [[S("u>a", 0.7, [1.2, 1.75, 1.3], { vib: 0.04, c: "w" })], [S("i", 0.6, [1.3, 1.8, 1.5], { vib: 0.03, c: "y" })]],
-  hum: () => {
-    // A little random tune on a pentatonic scale.
-    const scale = [1, 1.125, 1.25, 1.5, 1.667];
-    let idx = Math.floor(Math.random() * 3);
-    const notes = Array.from({ length: 4 + Math.floor(Math.random() * 2) }, (_, k) => {
-      idx = Math.max(0, Math.min(scale.length - 1, idx + Math.floor(Math.random() * 3) - 1));
-      return S(k % 2 ? "a" : "n", jitter(0.17, 0.15), [scale[idx], scale[idx]], { a: 0.5, vib: 0.02, gap: 0.02 });
-    });
-    return [notes];
-  },
-  sigh: () => [[S("a", 0.5, [1, 0.75], { breath: 0.7, a: 0.45, c: "h" })]],
-};
+/** A little random tune on the skin's scale. */
+function hum(scale: number[]): Syl[] {
+  const steps = scale.length ? scale : [1];
+  let idx = Math.floor(Math.random() * Math.min(3, steps.length));
+  return Array.from({ length: 4 + Math.floor(Math.random() * 2) }, (_, k) => {
+    idx = Math.max(0, Math.min(steps.length - 1, idx + Math.floor(Math.random() * 3) - 1));
+    return S(k % 2 ? "a" : "n", jitter(0.17, 0.15), [steps[idx], steps[idx]], { a: 0.5, vib: 0.02, gap: 0.02 });
+  });
+}
 
-const waves = new WeakMap<BaseAudioContext, PeriodicWave>();
+/** Skins are user-made: drop syllables that can't be played. */
+function playable(s: Syl): boolean {
+  const vs = typeof s?.v === "string" ? s.v.split(">") : [];
+  return (
+    vs.length >= 1 && vs.length <= 2 && vs.every((v) => VOWELS.includes(v as Vowel)) &&
+    typeof s.d === "number" && s.d > 0 && s.d < 3 &&
+    Array.isArray(s.p) && s.p.length > 0 && s.p.every((m) => typeof m === "number" && m > 0.1 && m < 8)
+  );
+}
+
+const waves = new WeakMap<BaseAudioContext, { rolloff: number; wave: PeriodicWave }>();
 
 /** Glottal-ish source: harmonics rolling off faster than a sawtooth. */
-function glottal(ctx: BaseAudioContext) {
+function glottal(ctx: BaseAudioContext, rolloff: number) {
   let w = waves.get(ctx);
-  if (!w) {
+  if (!w || w.rolloff !== rolloff) {
     const n = 40;
     const real = new Float32Array(n);
     const imag = new Float32Array(n);
-    for (let k = 1; k < n; k++) imag[k] = 1 / Math.pow(k, 1.4);
-    w = ctx.createPeriodicWave(real, imag);
+    for (let k = 1; k < n; k++) imag[k] = 1 / Math.pow(k, rolloff);
+    w = { rolloff, wave: ctx.createPeriodicWave(real, imag) };
     waves.set(ctx, w);
   }
-  return w;
+  return w.wave;
 }
 
 function vowels(v: string): [Vowel, Vowel] {
@@ -149,7 +130,8 @@ function vowels(v: string): [Vowel, Vowel] {
   return [a, b ?? a];
 }
 
-function syllable(ctx: BaseAudioContext, out: AudioNode, s: Syl, t: number, base: number, tempo: number) {
+function syllable(ctx: BaseAudioContext, out: AudioNode, pr: VoiceProfile, s: Syl, t: number, base: number, tempo: number) {
+  const FORMANTS = pr.formants;
   const d = s.d * tempo;
   const amp = (s.a ?? 1) * 0.5;
   const [v0, v1] = vowels(s.v);
@@ -182,16 +164,16 @@ function syllable(ctx: BaseAudioContext, out: AudioNode, s: Syl, t: number, base
     if (onsetVowel) f.frequency.linearRampToValueAtTime(mid, voiceStart + Math.min(0.07, d * 0.4));
     f.frequency.setValueAtTime(mid, voiceStart + Math.min(0.07, d * 0.4));
     f.frequency.linearRampToValueAtTime(to, voiceStart + d * 0.55);
-    f.Q.value = mid / FORMANT_BW[k];
+    f.Q.value = mid / pr.formantBandwidth[k];
     const g = ctx.createGain();
-    g.gain.value = FORMANT_GAIN[k];
+    g.gain.value = pr.formantGain[k];
     f.connect(g).connect(sum);
     return f;
   });
 
   // Voiced source with a pitch contour and vibrato.
   const osc = ctx.createOscillator();
-  osc.setPeriodicWave(glottal(ctx));
+  osc.setPeriodicWave(glottal(ctx, pr.rolloff));
   const p = s.p.length > 1 ? s.p : [s.p[0], s.p[0]];
   p.forEach((m, k) => {
     const at = voiceStart + (d * k) / (p.length - 1);
@@ -199,9 +181,9 @@ function syllable(ctx: BaseAudioContext, out: AudioNode, s: Syl, t: number, base
     else osc.frequency.exponentialRampToValueAtTime(base * m, at);
   });
   const vib = ctx.createOscillator();
-  vib.frequency.value = jitter(5.8, 0.1);
+  vib.frequency.value = jitter(pr.vibratoRate, 0.1);
   const vibDepth = ctx.createGain();
-  vibDepth.gain.value = base * (s.vib ?? 0.012);
+  vibDepth.gain.value = base * (s.vib ?? pr.vibratoDepth);
   vib.connect(vibDepth).connect(osc.frequency);
   const voiced = ctx.createGain();
   voiced.gain.value = 1 - (s.breath ?? 0) * 0.6;
@@ -220,7 +202,7 @@ function syllable(ctx: BaseAudioContext, out: AudioNode, s: Syl, t: number, base
   vib.stop(end + 0.05);
 
   // Breath noise through the same formants.
-  const breath = s.breath ?? 0.08;
+  const breath = s.breath ?? pr.breath;
   const n = engine.noise(ctx);
   const ng = ctx.createGain();
   ng.gain.value = breath * 0.35;
@@ -264,52 +246,47 @@ const busyUntil = new WeakMap<BaseAudioContext, number>();
 /** Play one emotive phrase. Returns its duration in seconds. */
 export function playVoice(kind: VoiceKind): number {
   const ctx = engine.get();
-  if (!ctx || !engine.settings.voice) return 0;
+  const pr = profile;
+  if (!ctx || !pr || !engine.settings.voice) return 0;
   // Don't talk over herself.
   if (ctx.currentTime < (busyUntil.get(ctx) ?? 0) - 0.05) return 0;
   const recorded = playClip(ctx, kind);
   if (recorded) return recorded;
-  const options = PHRASES[kind]();
-  const phrase = options[Math.floor(Math.random() * options.length)];
-  const base = jitter(BASE_PITCH, 0.05);
-  const tempo = jitter(1, 0.1);
+  const options = kind === "hum" ? [hum(pr.humScale)] : (pr.phrases[kind] ?? pr.phrases.neutral ?? []);
+  const phrase = (options[Math.floor(Math.random() * options.length)] ?? []).filter(playable);
+  if (!phrase.length) return 0;
+  const base = jitter(pr.pitch, pr.pitchJitter);
+  const tempo = jitter(pr.tempo, pr.tempoJitter);
   const bus = ctx.createGain();
   // Soften the top end a little so it reads as a voice, not a buzzer.
   const tone = ctx.createBiquadFilter();
   tone.type = "lowpass";
-  tone.frequency.value = 5200;
+  tone.frequency.value = pr.brightness;
   bus.connect(tone).connect(engine.voiceBus);
   let t = ctx.currentTime + 0.01;
   const start = t;
-  for (const s of phrase) t = syllable(ctx, bus, s, t, base, tempo);
+  for (const s of phrase) t = syllable(ctx, bus, pr, s, t, base, tempo);
   busyUntil.set(ctx, t);
   return t - start;
 }
 
 // ---------- recorded clips ----------
 
-/** public/voice/manifest.json: { "<kind>": ["happy-1.mp3", …] } */
+/** Decoded clips of the current skin (voice.json "clips": { "<kind>": ["happy-1.mp3", …] }). */
 const clips = new Map<VoiceKind, AudioBuffer[]>();
 const lastClip = new Map<VoiceKind, AudioBuffer>();
 
-/** Fetch and decode every clip listed in the manifest. Missing manifest = synth only. */
-export async function loadVoiceClips() {
-  let manifest: Partial<Record<VoiceKind, string[]>>;
-  try {
-    const r = await fetch("/voice/manifest.json");
-    if (!r.ok) return;
-    manifest = await r.json();
-  } catch {
-    return;
-  }
+/** Decode every clip the skin lists. No clips = synth only. */
+async function loadVoiceClips(skin: Skin) {
+  clips.clear();
   // AudioBuffers aren't tied to a context; decode once and play anywhere.
   const decoder = new OfflineAudioContext(1, 1, 48000);
   await Promise.all(
-    Object.entries(manifest).map(async ([kind, files]) => {
+    Object.entries(skin.voice.clips ?? {}).map(async ([kind, files]) => {
       const bufs = await Promise.all(
-        (files ?? []).map(async (f) => {
+        (Array.isArray(files) ? files : []).map(async (f) => {
           try {
-            return await decoder.decodeAudioData(await (await fetch(`/voice/${f}`)).arrayBuffer());
+            return await decoder.decodeAudioData(await skin.voiceFile(String(f)));
           } catch (e) {
             console.warn("voice clip failed", f, e);
             return null;
@@ -320,10 +297,6 @@ export async function loadVoiceClips() {
       if (ok.length) clips.set(kind as VoiceKind, ok);
     }),
   );
-}
-
-export function hasVoiceClips() {
-  return clips.size > 0;
 }
 
 function playClip(ctx: BaseAudioContext, kind: VoiceKind): number {

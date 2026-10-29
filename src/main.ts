@@ -1,6 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { engine } from "./audio/engine";
-import { loadVoiceClips } from "./audio/voice";
+import { setVoice } from "./audio/voice";
 import { Director } from "./brain/director";
 import { Voice } from "./brain/lines";
 import { LlmBrain } from "./brain/llm";
@@ -11,6 +11,7 @@ import { Bubble } from "./pet/bubble";
 import { Fx } from "./pet/fx";
 import { Pet } from "./pet/pet";
 import { Rig } from "./pet/rig";
+import { loadSkin } from "./skin";
 import "./styles.css";
 
 const BASE_HEIGHT = 230;
@@ -23,7 +24,10 @@ window.addEventListener("unhandledrejection", (e) => report("unhandled", e.reaso
 
 async function main() {
   let settings: Settings = await loadSettings();
-  const memory = new Memory();
+  // Dev: VITE_PET_SKIN=<id> wears that skin without touching settings.json.
+  const chosenSkin = (import.meta.env.DEV && import.meta.env.VITE_PET_SKIN) || settings.skin;
+  const skin = await loadSkin(chosenSkin); // the base skin if that one is gone
+  const memory = new Memory(skin.meta.id);
   await memory.load();
 
   const stage = document.getElementById("stage")!;
@@ -37,14 +41,14 @@ async function main() {
   };
   await applySize();
   engine.configure(settings.sound);
-  loadVoiceClips();
-  await rig.init(stage);
+  setVoice(skin);
+  await rig.init(stage, skin);
   const fx = new Fx(rig, rig.fxLayer);
   const bubble = new Bubble();
-  const voice = new Voice(memory);
+  const voice = new Voice(memory, skin.lines);
   const pet = new Pet(rig, fx, bubble, voice, memory);
-  const llm = new LlmBrain(memory, () => settings);
-  const director = new Director(pet, voice, memory, llm, () => settings);
+  const llm = new LlmBrain(memory, () => settings, skin.prompts);
+  const director = new Director(pet, voice, memory, llm, () => settings, skin);
 
   if (import.meta.env.DEV) (await import("./debug")).installDebug(rig, pet, fx);
   await pet.start();
@@ -55,10 +59,17 @@ async function main() {
   });
   await listen("settings-changed", async () => {
     settings = await loadSettings();
+    // A new skin changes everything (sprites, lines, voice, memory): start over.
+    if (settings.skin !== chosenSkin) {
+      location.reload();
+      return;
+    }
     engine.configure(settings.sound);
     await applySize();
   });
   await listen("memory-cleared", () => memory.clear());
+  // The skin she wears was replaced by an import: load the new files.
+  await listen("skin-updated", () => location.reload());
 }
 
 main().catch((e) => {

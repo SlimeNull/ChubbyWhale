@@ -61,9 +61,14 @@ export interface Figure {
   headR: number;
   /** Where the cursor holds her while dragged (the collar), as a fraction of the pose's height from its top. */
   hang: number;
+  /**
+   * Strength of the mesh deformation (breathing, body lean, bending while dangling,
+   * squash & stretch): 1 = standard. Detailed, realistic art looks warped sooner.
+   */
+  warp: number;
 }
 
-export const DEFAULT_FIGURE: Figure = { height: 230, window: [332, 290], headY: 0.2, headR: 0.28, hang: 0.3 };
+export const DEFAULT_FIGURE: Figure = { height: 230, window: [332, 290], headY: 0.2, headR: 0.28, hang: 0.3, warp: 1 };
 
 export interface SpriteManifest {
   /** Distance between the feet in walk_a / run_a when she is 230px tall (px). */

@@ -53,7 +53,7 @@
 │   │   ├── sfx.ts            萌系音效（五声音阶铃音、八音盒、滑哨、小鸡啾啾、少量混响）：pop、pickup、whoosh、boing、thud、softland、dizzy、puff、sparkle、step（脚步）
 │   │   └── voice.ts          「角色声音」（16 种 VoiceKind）：参数全部来自皮肤的 voice.json（VoiceProfile）；优先播放皮肤 voice/ 里的录音片段，某种情绪没有片段时用共振峰合成无词音节；hum 的旋律是现场随机生成的；皮肤里无法播放的音节会被跳过
 │   ├── pet/                  「身体」：渲染和行为
-│   │   ├── rig.ts            MeshPlane 网格变形渲染：视线差分（gaze）、贴边裁切遮罩（clip）和扒边线位置（edge()）、若干姿势的横向范围（spanX()，走路限位用）、呼吸、倾斜、挤压拉伸、跳跃、悬挂摆动（looseness）、飞行旋转或翻滚（spin）、逐帧循环（playCycle：走路和跑步，带步伐起伏和左右摇摆）；PoseName 定义；脚的位置随窗口尺寸变化
+│   │   ├── rig.ts            MeshPlane 网格变形渲染：视线差分（gaze）、贴边裁切遮罩（clip）和扒边线位置（edge()）、若干姿势的横向范围（spanX()，走路限位用）、呼吸、倾斜、挤压拉伸（这三项和悬挂时的弯曲按皮肤的 figure.warp 缩放）、跳跃、悬挂摆动（looseness）、飞行旋转或翻滚（spin）、逐帧循环（playCycle：走路和跑步，带步伐起伏和左右摇摆）；PoseName 定义；脚的位置随窗口尺寸变化
 │   │   ├── pet.ts            行为状态机（place × mode，见下文）：待机动作、日常活动、贴边探头（dock）、眨眼、口型、指针（戳 / 拖 / 丢）、反应变体（REACTIONS）、音效和声音触发、睡眠、点击区域同步
 │   │   ├── gaze.ts           视线控制器：看前方 / 观察附近 / 跟随鼠标，随机切换；回到休息后先看前方，换方向慢、带滞回和停留时间，换方向时眨眼
 │   │   ├── activities.ts     日常活动表（ACTIVITIES：吃饭、打游戏、看书、喝奶茶、听音乐、玩手机、画画）和探头小动作表（PEEK_MOTIONS）
@@ -83,7 +83,7 @@
 │   ├── voice.json            合成音参数和各情绪的音节短语（一个音节一行，方便手改）；clips 由 build_voice.py 写入
 │   ├── voice/                （可选）录音片段 <emotion>-<n>.mp3，由 art/voice/build_voice.py 生成
 │   └── sprites/              立绘（构建产物，由 art/build_sprites.py 生成，不要手改）
-│       ├── manifest.json     { motion: {walkStride, runStride}, figure: {height, window, headY, headR, hang}, poses: {name: {w,h,ax}}, variants: {...} }，ax 是头部中心的横向比例，motion 是这套图的走跑步幅，figure 是身体比例（见「皮肤」）；它列出的 poses / variants 就是每个皮肤必须有的图
+│       ├── manifest.json     { motion: {walkStride, runStride}, figure: {height, window, headY, headR, hang, warp}, poses: {name: {w,h,ax}}, variants: {...} }，ax 是头部中心的横向比例，motion 是这套图的走跑步幅，figure 是身体比例（见「皮肤」）；它列出的 poses / variants 就是每个皮肤必须有的图
 │       ├── <pose>.webp       41 个姿势：13 个基础姿势、10 个反应变体（giggle、pout、proud、dragged_*、fly_*、hurt_*）、5 帧移动循环（walk_a / walk_pass / walk_b、run_a / run_b，面朝左）、4 个探头（peek、peek_wave、peek_smile、peek_sleepy；扒边线是图片右边缘）、9 个活动帧（eat / eat_b、game / game_b、read、tea、music、phone、draw）
 │       └── idle_*.webp       idle 的差分：眨眼 idle_blink、说话 idle_talk、视线 idle_gaze_{l,r,u,d,ul,ur,dl,dr}（八个方向）
 │
@@ -229,7 +229,7 @@
 
 - **内置皮肤**：「标准大肥鱼」（standard）、「深海蓝调」（deep-blue，高冷男版）、「大肥鱼·成熟」（mature，约七头身的温柔大姐姐）、「深海蓝调·成熟」（deep-blue-mature，约八头身的高冷禁欲系男版）。skins.rs 的单元测试会检查仓库里每个内置皮肤都能通过导入校验。
 - **存放位置**：内置皮肤是应用资源 `skins/<id>/`（仓库里的 `skins/`）；导入的皮肤在数据目录的 `skins/<id>/`。导入的 id 不能和内置皮肤相同，所以按 id 查找时不会有歧义。
-- **身体比例（figure）**：写在 `sprites/manifest.json` 的 `figure`，由 `build_sprites.py` 从 SKINS 配置写入，缺的字段用 Q 版默认值（`src/skin.ts` 的 DEFAULT_FIGURE）。它描述这套图本身，所以不从标准皮肤继承。`height`：large 大小时 idle 的显示高度（默认 230；七八头身的角色同样身高时脸太小，大肥鱼·成熟 300、深海蓝调·成熟 320）；`window`：large 大小时的宠物窗口（默认 332×290，要包住最宽的姿势和头顶特效，`build_sprites.py` 会检查）；`headY`：头部中心在当前姿势高度中的比例（特效、视线用，默认 0.2）；`headR`：头半宽占 `height` 的比例（气泡锚点，默认 0.28）；`hang`：拖拽时手揪住的后领在姿势高度中的比例（默认 0.3）。
+- **身体比例（figure）**：写在 `sprites/manifest.json` 的 `figure`，由 `build_sprites.py` 从 SKINS 配置写入，缺的字段用 Q 版默认值（`src/skin.ts` 的 DEFAULT_FIGURE）。它描述这套图本身，所以不从标准皮肤继承。`height`：large 大小时 idle 的显示高度（默认 230；七八头身的角色同样身高时脸太小，大肥鱼·成熟 300、深海蓝调·成熟 320）；`window`：large 大小时的宠物窗口（默认 332×290，要包住最宽的姿势和头顶特效，`build_sprites.py` 会检查）；`headY`：头部中心在当前姿势高度中的比例（特效、视线用，默认 0.2）；`headR`：头半宽占 `height` 的比例（气泡锚点，默认 0.28）；`hang`：拖拽时手揪住的后领在姿势高度中的比例（默认 0.3）；`warp`：网格形变强度（呼吸、身体倾斜、悬挂时的弯曲、挤压拉伸一起缩放，默认 1，整体旋转和跳跃不受影响；深海蓝调·成熟是 0.3，他写实的西装和直线条一弯就显得扭曲）。
 - **读取**：前端只通过 `skin_file` 拿字节，内置和导入的皮肤、开发版和正式版走同一条路。`loadSkin(id)` 先读标准皮肤，再读这个皮肤，按上表合并；皮肤不存在（比如被删了）时回退到标准皮肤。
 - **切换**：设置窗口改 `settings.skin` 后发 `settings-changed`，宠物窗口发现皮肤变了就整页重新加载。所有模块（贴图、台词、声音、提示词、记忆）都只在启动时读一次皮肤。
 - **记忆**：每个皮肤一份（`memory-<id>.json`），不同皮肤是不同的角色，喜好和说过的话互不影响。删除皮肤不删记忆，重新导入后还能接上。

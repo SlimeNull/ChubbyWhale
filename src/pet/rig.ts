@@ -330,6 +330,10 @@ export class Rig {
     const ay = this.hang ? hangPivot : this.flying ? 0.55 : 1;
 
     const peeking = texName.startsWith("peek");
+    // How strongly the mesh bends (skin figure.warp): breathing, lean, dangling, squash & stretch.
+    const warp = this.figure.warp;
+    const qx = 1 + (sx - 1) * warp;
+    const qy = 1 + (sy - 1) * warp;
     const geo = this.mesh.geometry;
     const pos = geo.getBuffer("aPosition");
     const uvs = geo.getBuffer("aUV").data as Float32Array;
@@ -341,22 +345,22 @@ export class Rig {
       let y = (v - ay) * h;
       if (this.hang) {
         const down = Math.max(0, v - hangPivot) / (1 - hangPivot);
-        x += this.swing * h * 0.22 * this.looseness * down * down;
-        y += h * 0.05 * down;
+        x += this.swing * h * 0.22 * this.looseness * down * down * warp;
+        y += h * 0.05 * down * warp;
       } else {
         const up = 1 - v;
-        y -= breath * h * 0.014 * up;
+        y -= breath * h * 0.014 * up * warp;
         if (peeking) {
           // Hands stay on the screen edge: breathe vertically only, and only the head leans.
-          x += this.lean * h * Math.pow(Math.max(0, up - 0.5) * 2, 1.5);
+          x += this.lean * h * Math.pow(Math.max(0, up - 0.5) * 2, 1.5) * warp;
         } else {
-          x *= 1 + breath * 0.01 * up;
-          x += this.lean * h * Math.pow(up, 1.7);
+          x *= 1 + breath * 0.01 * up * warp;
+          x += this.lean * h * Math.pow(up, 1.7) * warp;
         }
       }
       // Peeking: no horizontal squash either, or the hands would leave the screen edge.
-      out[i] = peeking ? x : x * sx;
-      out[i + 1] = y * sy;
+      out[i] = peeking ? x : x * qx;
+      out[i + 1] = y * qy;
     }
     pos.update();
 

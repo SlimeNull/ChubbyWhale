@@ -242,9 +242,10 @@ def build(skin_id: str):
 
 
 # Body proportions (src/skin.ts DEFAULT_FIGURE): idle height and pet window at the
-# "large" size, head center / half width, where she's held while dragged. Chibi skins
+# "large" size, head center / half width, where she's held while dragged, mesh
+# deformation strength (breathing, lean, dangling, squash; 1 = standard). Chibi skins
 # use these; tall skins set their own "figure" in SKINS.
-DEFAULT_FIGURE = {"height": 230, "window": [332, 290], "headY": 0.2, "headR": 0.28, "hang": 0.3}
+DEFAULT_FIGURE = {"height": 230, "window": [332, 290], "headY": 0.2, "headR": 0.28, "hang": 0.3, "warp": 1}
 
 
 def check_fit(manifest: dict):
@@ -455,7 +456,8 @@ SKINS: dict[str, dict] = {
         "mouth": DEEP_BLUE_MATURE_MOUTH,
         "gaze": DEEP_BLUE_MATURE_GAZE,
         "strides": {"walk": 73, "run": 57},  # as above; run: mean of A / B
-        "figure": {"height": 320, "window": [282, 370], "headY": 0.09, "headR": 0.08, "hang": 0.15},
+        # warp 0.3: his detailed, realistic art (suit, straight lines) looks bent at the standard strength
+        "figure": {"height": 320, "window": [282, 370], "headY": 0.09, "headR": 0.08, "hang": 0.15, "warp": 0.3},
         "head_rows": 0.13,
     },
 }

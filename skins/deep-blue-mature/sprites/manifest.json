@@ -12,7 +12,8 @@
     ],
     "headY": 0.09,
     "headR": 0.08,
-    "hang": 0.15
+    "hang": 0.15,
+    "warp": 0.3
   },
   "poses": {
     "idle": {
